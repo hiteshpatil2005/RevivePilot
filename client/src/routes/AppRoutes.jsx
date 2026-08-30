@@ -5,36 +5,20 @@ import ProtectedRoute from './ProtectedRoute';
 import Login from '../pages/auth/Login';
 import Register from '../pages/auth/Register';
 import Dashboard from '../pages/dashboard/Dashboard';
+import RecoveryCases from '../pages/recovery/RecoveryCases';
+import RecoveryCaseDetails from '../pages/recovery/RecoveryCaseDetails';
+import AgentMonitor from '../pages/agents/AgentMonitor';
+import Transactions from '../pages/transactions/Transactions';
 
 /**
- * AppRoutes — single source of truth for all client routes.
- *
- * Route tree:
- *   /             → redirect to /login
- *   /login        → AuthLayout → Login
- *   /register     → AuthLayout → Register
- *   /dashboard    → ProtectedRoute → DashboardLayout → Dashboard
- *   /recovery     → ProtectedRoute → DashboardLayout → (coming in Part 2)
- *   /agents       → ProtectedRoute → DashboardLayout → (coming in Part 3)
- *   /transactions → ProtectedRoute → DashboardLayout → (coming in Part 2)
- *   /analytics    → ProtectedRoute → DashboardLayout → (coming in Part 4)
- *   /policies     → ProtectedRoute → DashboardLayout → (coming in Part 3)
- *   /audit        → ProtectedRoute → DashboardLayout → (coming in Part 4)
- *   *             → redirect to /login
+ * ComingSoon — placeholder for Part 3/4 pages still under development.
  */
 function ComingSoon({ page }) {
   return (
     <div className="flex items-center justify-center h-full p-12">
       <div className="text-center">
-        <p
-          className="text-4xl font-bold mb-3"
-          style={{ color: 'var(--color-border-strong)' }}
-        >
-          🚧
-        </p>
-        <p className="text-[15px] font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-          {page}
-        </p>
+        <p className="text-4xl mb-3">🚧</p>
+        <p className="text-[15px] font-semibold" style={{ color: 'var(--color-text-primary)' }}>{page}</p>
         <p className="text-[13px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
           Coming in the next development phase
         </p>
@@ -43,6 +27,23 @@ function ComingSoon({ page }) {
   );
 }
 
+/**
+ * AppRoutes — single source of truth for all client routes.
+ *
+ * Route tree:
+ *   /                      → /login
+ *   /login                 → AuthLayout → Login
+ *   /register              → AuthLayout → Register
+ *   /dashboard             → ProtectedRoute → DashboardLayout → Dashboard        [Part 1+2]
+ *   /recovery              → ProtectedRoute → DashboardLayout → RecoveryCases    [Part 2]
+ *   /recovery/:caseId      → ProtectedRoute → DashboardLayout → RecoveryCaseDetails [Part 2]
+ *   /agents                → ProtectedRoute → DashboardLayout → AgentMonitor     [Part 2]
+ *   /transactions          → ProtectedRoute → DashboardLayout → Transactions     [Part 2]
+ *   /analytics             → ProtectedRoute → DashboardLayout → ComingSoon       [Part 4]
+ *   /policies              → ProtectedRoute → DashboardLayout → ComingSoon       [Part 3]
+ *   /audit                 → ProtectedRoute → DashboardLayout → ComingSoon       [Part 4]
+ *   *                      → /login
+ */
 export default function AppRoutes() {
   return (
     <Routes>
@@ -58,13 +59,16 @@ export default function AppRoutes() {
       {/* Protected dashboard routes */}
       <Route element={<ProtectedRoute />}>
         <Route element={<DashboardLayout />}>
-          <Route path="/dashboard"    element={<Dashboard />} />
-          <Route path="/recovery"     element={<ComingSoon page="Recovery Cases" />} />
-          <Route path="/agents"       element={<ComingSoon page="AI Agents" />} />
-          <Route path="/transactions" element={<ComingSoon page="Transactions" />} />
-          <Route path="/analytics"    element={<ComingSoon page="Analytics" />} />
-          <Route path="/policies"     element={<ComingSoon page="Policies" />} />
-          <Route path="/audit"        element={<ComingSoon page="Audit Logs" />} />
+          {/* Part 1+2 */}
+          <Route path="/dashboard"         element={<Dashboard />} />
+          <Route path="/recovery"          element={<RecoveryCases />} />
+          <Route path="/recovery/:caseId"  element={<RecoveryCaseDetails />} />
+          <Route path="/agents"            element={<AgentMonitor />} />
+          <Route path="/transactions"      element={<Transactions />} />
+          {/* Part 3/4 */}
+          <Route path="/analytics"         element={<ComingSoon page="Analytics" />} />
+          <Route path="/policies"          element={<ComingSoon page="Policies" />} />
+          <Route path="/audit"             element={<ComingSoon page="Audit Logs" />} />
         </Route>
       </Route>
 

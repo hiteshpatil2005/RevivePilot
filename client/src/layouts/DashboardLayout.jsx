@@ -27,7 +27,12 @@ const PAGE_TITLES = {
 export default function DashboardLayout() {
   const [collapsed, setCollapsed] = useState(false);
   const location = useLocation();
-  const title = PAGE_TITLES[location.pathname] || 'Dashboard';
+  const getTitle = (pathname) => {
+    if (PAGE_TITLES[pathname]) return PAGE_TITLES[pathname];
+    if (pathname.startsWith('/recovery/')) return 'Recovery Case';
+    return 'Dashboard';
+  };
+  const title = getTitle(location.pathname);
 
   return (
     <div

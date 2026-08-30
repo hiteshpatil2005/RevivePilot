@@ -1,4 +1,4 @@
-import { NavLink, useLocation } from 'react-router-dom';
+import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, RefreshCcw, Bot, CreditCard, BarChart3,
   ShieldCheck, ScrollText, ChevronLeft, ChevronRight, LogOut,
@@ -14,6 +14,28 @@ const ICON_MAP = {
 
 function NavItem({ item, collapsed }) {
   const Icon = ICON_MAP[item.icon] || LayoutDashboard;
+
+  if (item.disabled) {
+    return (
+      <div
+        className={`
+          flex items-center gap-3 px-3 py-2.5 rounded-lg
+          text-[13px] font-medium cursor-not-allowed opacity-40
+          ${collapsed ? 'justify-center' : ''}
+        `}
+        style={{ color: 'var(--color-text-muted)' }}
+        title={collapsed ? `${item.label} (coming soon)` : undefined}
+      >
+        <Icon size={16} className="flex-shrink-0" />
+        {!collapsed && (
+          <div className="flex items-center justify-between flex-1 min-w-0">
+            <span className="truncate">{item.label}</span>
+            <span className="text-[9px] uppercase tracking-wider ml-1 font-semibold opacity-70">Soon</span>
+          </div>
+        )}
+      </div>
+    );
+  }
 
   return (
     <NavLink
@@ -35,18 +57,12 @@ function NavItem({ item, collapsed }) {
   );
 }
 
-/**
- * Sidebar — premium fintech side navigation.
- * Props:
- *   collapsed (bool)
- *   onToggle  (fn)
- */
 export default function Sidebar({ collapsed, onToggle }) {
   const { user, logout } = useAuth();
 
   return (
     <aside
-      className="sidebar-transition flex flex-col h-full overflow-hidden"
+      className="sidebar-transition flex flex-col h-full overflow-hidden flex-shrink-0"
       style={{
         width: collapsed ? '64px' : '240px',
         backgroundColor: 'var(--color-bg-sidebar)',
@@ -88,7 +104,6 @@ export default function Sidebar({ collapsed, onToggle }) {
 
       {/* User Footer */}
       <div style={{ borderTop: '1px solid var(--color-border)' }}>
-        {/* User Info */}
         {!collapsed && user && (
           <div className="flex items-center gap-3 px-4 py-3">
             <div
@@ -108,15 +123,20 @@ export default function Sidebar({ collapsed, onToggle }) {
           </div>
         )}
 
-        {/* Collapse toggle + logout */}
         <div className="flex items-center gap-1 px-2 py-2">
           <button
             onClick={logout}
             title="Sign out"
             className="flex items-center gap-2 flex-1 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 cursor-pointer"
             style={{ color: 'var(--color-text-secondary)' }}
-            onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--color-danger-bg)'; e.currentTarget.style.color = 'var(--color-danger)'; }}
-            onMouseLeave={e => { e.currentTarget.style.backgroundColor = ''; e.currentTarget.style.color = 'var(--color-text-secondary)'; }}
+            onMouseEnter={e => {
+              e.currentTarget.style.backgroundColor = 'var(--color-danger-bg)';
+              e.currentTarget.style.color = 'var(--color-danger)';
+            }}
+            onMouseLeave={e => {
+              e.currentTarget.style.backgroundColor = '';
+              e.currentTarget.style.color = 'var(--color-text-secondary)';
+            }}
           >
             <LogOut size={15} className="flex-shrink-0" />
             {!collapsed && <span>Sign out</span>}
