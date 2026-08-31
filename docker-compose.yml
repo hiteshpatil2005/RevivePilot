@@ -1,0 +1,84 @@
+services:
+  # PostgreSQL Database
+  postgres:
+    image: postgres:16-alpine
+    container_name: revivepilot-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgrespassword
+      POSTGRES_DB: revivepilot
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d revivepilot"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # Redis Event Bus & Cache
+  redis:
+    image: redis:7-alpine
+    container_name: revivepilot-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  # RevivePilot FastAPI Backend
+  server:
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    container_name: revivepilot-server
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    environment:
+      APP_NAME: RevivePilot
+      APP_ENV: development
+      DEBUG: "true"
+      DATABASE_URL: postgresql+asyncpg://postgres:postgrespassword@postgres:5432/revivepilot
+      REDIS_URL: redis://redis:6379/0
+      JWT_SECRET_KEY: revivepilot-super-secret-key-development-32chars
+      JWT_ALGORITHM: HS256
+      ACCESS_TOKEN_EXPIRE_MINUTES: 60
+      CORS_ORIGINS: http://localhost:5173,http://localhost:5174,http://client:5173
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./server:/app
+    command: sh -c "alembic upgrade head && python scripts/seed.py && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
+
+  # RevivePilot React Client
+  client:
+    image: node:20-alpine
+    container_name: revivepilot-client
+    restart: unless-stopped
+    working_dir: /app
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./client:/app
+    environment:
+      VITE_API_BASE_URL: http://localhost:8000/api
+      VITE_WS_URL: ws://localhost:8000/ws
+      VITE_APP_ENV: development
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0 --port 5173"
+    depends_on:
+      - server
+
+volumes:
+  postgres_data:
+  redis_data:
