@@ -1,5 +1,5 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { MOCK_USER } from '../data/mockData';
+import { authApi } from '../services/authApi';
 
 const AuthContext = createContext(null);
 
@@ -8,82 +8,101 @@ export function AuthProvider({ children }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // Restore session from localStorage on mount
+  // Restore session from token or localStorage on mount
   useEffect(() => {
-    const stored = localStorage.getItem('revivepilot-session');
-    if (stored) {
+    async function restoreSession() {
       try {
-        const session = JSON.parse(stored);
-        setUser(session.user);
-        setIsAuthenticated(true);
-      } catch {
+        const stored = localStorage.getItem('revivepilot-session');
+        const token = localStorage.getItem('revivepilot-token');
+
+        if (token || stored) {
+          // Attempt backend verification
+          const currentUser = await authApi.getCurrentUser();
+          if (currentUser) {
+            setUser(currentUser);
+            setIsAuthenticated(true);
+          } else if (stored) {
+            const session = JSON.parse(stored);
+            setUser(session.user);
+            setIsAuthenticated(true);
+          }
+        }
+      } catch (err) {
+        console.warn('[AuthContext] Session restore fallback:', err);
         localStorage.removeItem('revivepilot-session');
+        localStorage.removeItem('revivepilot-token');
+      } finally {
+        setLoading(false);
       }
     }
-    setLoading(false);
+
+    restoreSession();
+
+    // Listen for auth expiration events dispatched by axios interceptor
+    const handleAuthExpired = () => {
+      setUser(null);
+      setIsAuthenticated(false);
+    };
+
+    window.addEventListener('auth:expired', handleAuthExpired);
+    return () => window.removeEventListener('auth:expired', handleAuthExpired);
   }, []);
 
   /**
-   * login() — currently uses mock validation.
-   * Later: replace body with `await api.post('/auth/login', { email, password })`
+   * login({ email, password }) — calls authApi.login
    */
   const login = useCallback(async ({ email, password }) => {
     setLoading(true);
     try {
-      // Simulate network delay
-      await new Promise(resolve => setTimeout(resolve, 900));
-
-      if (
-        email === MOCK_USER.email &&
-        password === MOCK_USER.password
-      ) {
-        const session = { user: MOCK_USER };
-        localStorage.setItem('revivepilot-session', JSON.stringify(session));
-        setUser(MOCK_USER);
+      const data = await authApi.login({ email, password });
+      if (data?.user) {
+        setUser(data.user);
         setIsAuthenticated(true);
+        localStorage.setItem('revivepilot-session', JSON.stringify({ user: data.user }));
         return { success: true };
       }
-
-      return { success: false, error: 'Invalid email or password.' };
+      return { success: false, error: 'Login failed' };
+    } catch (err) {
+      console.error('[AuthContext] Login error:', err);
+      return {
+        success: false,
+        error: err.response?.data?.detail || err.message || 'Invalid email or password.',
+      };
     } finally {
       setLoading(false);
     }
   }, []);
 
   /**
-   * register() — currently creates a mock session.
-   * Later: replace body with `await api.post('/auth/register', payload)`
+   * register(...) — calls authApi.register
    */
   const register = useCallback(async ({ businessName, fullName, email, password }) => {
     setLoading(true);
     try {
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-      const newUser = {
-        id: `usr_${Date.now()}`,
-        businessName,
-        fullName,
-        email,
-        role: 'merchant',
-        avatarInitials: fullName.split(' ').map(n => n[0]).join('').slice(0, 2).toUpperCase(),
+      const data = await authApi.register({ businessName, fullName, email, password });
+      if (data?.user) {
+        setUser(data.user);
+        setIsAuthenticated(true);
+        localStorage.setItem('revivepilot-session', JSON.stringify({ user: data.user }));
+        return { success: true };
+      }
+      return { success: false, error: 'Registration failed' };
+    } catch (err) {
+      console.error('[AuthContext] Registration error:', err);
+      return {
+        success: false,
+        error: err.response?.data?.detail || err.message || 'Registration failed.',
       };
-
-      const session = { user: newUser };
-      localStorage.setItem('revivepilot-session', JSON.stringify(session));
-      setUser(newUser);
-      setIsAuthenticated(true);
-      return { success: true };
     } finally {
       setLoading(false);
     }
   }, []);
 
   /**
-   * logout() — clears session.
-   * Later: also call `await api.post('/auth/logout')`
+   * logout() — calls authApi.logout and clears state
    */
-  const logout = useCallback(() => {
-    localStorage.removeItem('revivepilot-session');
+  const logout = useCallback(async () => {
+    await authApi.logout();
     setUser(null);
     setIsAuthenticated(false);
   }, []);

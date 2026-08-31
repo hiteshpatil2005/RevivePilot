@@ -2,6 +2,7 @@ import { NavLink } from 'react-router-dom';
 import {
   LayoutDashboard, RefreshCcw, Bot, CreditCard, BarChart3,
   ShieldCheck, ScrollText, ChevronLeft, ChevronRight, LogOut,
+  FlaskConical,
 } from 'lucide-react';
 import Logo from '../common/Logo';
 import { useAuth } from '../../context/AuthContext';
@@ -9,33 +10,11 @@ import { NAV_GROUPS } from '../../data/mockData';
 
 const ICON_MAP = {
   LayoutDashboard, RefreshCcw, Bot, CreditCard,
-  BarChart3, ShieldCheck, ScrollText,
+  BarChart3, ShieldCheck, ScrollText, FlaskConical,
 };
 
 function NavItem({ item, collapsed }) {
   const Icon = ICON_MAP[item.icon] || LayoutDashboard;
-
-  if (item.disabled) {
-    return (
-      <div
-        className={`
-          flex items-center gap-3 px-3 py-2.5 rounded-lg
-          text-[13px] font-medium cursor-not-allowed opacity-40
-          ${collapsed ? 'justify-center' : ''}
-        `}
-        style={{ color: 'var(--color-text-muted)' }}
-        title={collapsed ? `${item.label} (coming soon)` : undefined}
-      >
-        <Icon size={16} className="flex-shrink-0" />
-        {!collapsed && (
-          <div className="flex items-center justify-between flex-1 min-w-0">
-            <span className="truncate">{item.label}</span>
-            <span className="text-[9px] uppercase tracking-wider ml-1 font-semibold opacity-70">Soon</span>
-          </div>
-        )}
-      </div>
-    );
-  }
 
   return (
     <NavLink
@@ -43,7 +22,7 @@ function NavItem({ item, collapsed }) {
       title={collapsed ? item.label : undefined}
       className={({ isActive }) => `
         flex items-center gap-3 px-3 py-2.5 rounded-lg
-        text-[13px] font-medium transition-all duration-150
+        text-[14px] font-medium transition-all duration-150
         ${collapsed ? 'justify-center' : ''}
         ${isActive
           ? 'bg-[var(--color-bg-active)] text-[var(--color-brand)] font-semibold'
@@ -87,7 +66,7 @@ export default function Sidebar({ collapsed, onToggle }) {
           <div key={group.label}>
             {!collapsed && (
               <p
-                className="px-3 mb-1.5 text-[10px] font-semibold uppercase tracking-widest"
+                className="px-3 mb-1.5 text-[11px] font-semibold uppercase tracking-widest"
                 style={{ color: 'var(--color-text-muted)' }}
               >
                 {group.label}
@@ -113,10 +92,10 @@ export default function Sidebar({ collapsed, onToggle }) {
               {user.avatarInitials}
             </div>
             <div className="min-w-0">
-              <p className="text-[13px] font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
+              <p className="text-[14px] font-medium truncate" style={{ color: 'var(--color-text-primary)' }}>
                 {user.fullName}
               </p>
-              <p className="text-[11px] truncate" style={{ color: 'var(--color-text-muted)' }}>
+              <p className="text-[12px] truncate" style={{ color: 'var(--color-text-muted)' }}>
                 {user.businessName}
               </p>
             </div>
@@ -127,7 +106,7 @@ export default function Sidebar({ collapsed, onToggle }) {
           <button
             onClick={logout}
             title="Sign out"
-            className="flex items-center gap-2 flex-1 px-3 py-2 rounded-lg text-[13px] font-medium transition-all duration-150 cursor-pointer"
+            className="flex items-center gap-2 flex-1 px-3 py-2 rounded-lg text-[14px] font-medium transition-all duration-150 cursor-pointer"
             style={{ color: 'var(--color-text-secondary)' }}
             onMouseEnter={e => {
               e.currentTarget.style.backgroundColor = 'var(--color-danger-bg)';

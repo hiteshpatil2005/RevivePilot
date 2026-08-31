@@ -1,13 +1,15 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCcw, ChevronRight } from 'lucide-react';
-import { MOCK_RECOVERY_CASES, MOCK_CUSTOMERS } from '../../data/mockData';
+import { RefreshCcw, ChevronRight, PlusCircle } from 'lucide-react';
+import { useRecoveryCases } from '../../hooks/useRecoveryCases';
+import { MOCK_CUSTOMERS } from '../../data/mockData';
 import SectionHeader from '../../components/common/SectionHeader';
 import SearchInput from '../../components/common/SearchInput';
 import FilterDropdown from '../../components/common/FilterDropdown';
 import StatusBadge from '../../components/common/StatusBadge';
 import RiskBadge from '../../components/common/RiskBadge';
 import EmptyState from '../../components/common/EmptyState';
+import SkeletonLoader from '../../components/common/SkeletonLoader';
 
 const STATUS_OPTIONS = [
   { value: '', label: 'All Statuses' },
@@ -58,16 +60,19 @@ function riskBand(score) {
 
 export default function RecoveryCases() {
   const navigate = useNavigate();
-  const [search, setSearch]     = useState('');
-  const [statusF, setStatusF]   = useState('');
-  const [riskF, setRiskF]       = useState('');
+  const { cases, loading, refresh } = useRecoveryCases();
+
+  const [search, setSearch]       = useState('');
+  const [statusF, setStatusF]     = useState('');
+  const [riskF, setRiskF]         = useState('');
   const [strategyF, setStrategyF] = useState('');
 
   const filtered = useMemo(() => {
-    return MOCK_RECOVERY_CASES.filter(c => {
-      const customer = MOCK_CUSTOMERS.find(cu => cu.id === c.customerId);
-      const searchMatch = !search ||
-        c.id.toLowerCase().includes(search.toLowerCase()) ||
+    return (cases || []).filter((c) => {
+      const customer = MOCK_CUSTOMERS.find((cu) => cu.id === c.customerId);
+      const searchMatch =
+        !search ||
+        c.id?.toLowerCase().includes(search.toLowerCase()) ||
         customer?.name?.toLowerCase().includes(search.toLowerCase()) ||
         c.rootCause?.toLowerCase().includes(search.toLowerCase());
       const statusMatch  = !statusF   || c.status === statusF;
@@ -75,14 +80,28 @@ export default function RecoveryCases() {
       const stratMatch   = !strategyF || c.strategy === strategyF;
       return searchMatch && statusMatch && riskMatch && stratMatch;
     });
-  }, [search, statusF, riskF, strategyF]);
+  }, [cases, search, statusF, riskF, strategyF]);
 
   return (
     <div className="p-6 max-w-screen-xl mx-auto space-y-5 animate-fade-in">
-      <SectionHeader
-        title="Recovery Cases"
-        subtitle="Monitor and manage revenue recovery opportunities."
-      />
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+        <SectionHeader
+          title="Recovery Cases"
+          subtitle="Autonomous tracking, state machine transitions, and intervention log."
+        />
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <button
+            onClick={() => navigate('/test-payment')}
+            className="btn-primary text-[13px] py-2 px-3 flex items-center gap-1.5"
+          >
+            <PlusCircle size={15} />
+            <span>Simulate Payment</span>
+          </button>
+          <button onClick={refresh} className="btn-ghost p-2" title="Refresh cases">
+            <RefreshCcw size={15} />
+          </button>
+        </div>
+      </div>
 
       {/* Filters */}
       <div className="flex flex-wrap gap-3">
@@ -111,90 +130,99 @@ export default function RecoveryCases() {
       </p>
 
       {/* Table */}
-      <div className="card overflow-hidden">
-        {filtered.length === 0 ? (
-          <EmptyState
-            icon={<RefreshCcw size={20} style={{ color: 'var(--color-text-muted)' }} />}
-            title="No recovery cases found"
-            subtitle="Try adjusting your search or filter criteria."
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                  {HEADERS.map(h => (
-                    <th
-                      key={h}
-                      className="text-left px-5 py-3 text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap"
-                      style={{ color: 'var(--color-text-muted)' }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                </tr>
-              </thead>
-              <tbody>
-                {filtered.map((c, i) => {
-                  const customer = MOCK_CUSTOMERS.find(cu => cu.id === c.customerId);
-                  return (
-                    <tr
-                      key={c.id}
-                      onClick={() => navigate(`/recovery/${c.id}`)}
-                      className="cursor-pointer transition-colors duration-100"
-                      style={{ borderBottom: i < filtered.length - 1 ? '1px solid var(--color-border)' : 'none' }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)'}
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = ''}
-                    >
-                      <td className="px-5 py-4">
-                        <span className="font-mono-data text-[12px] font-bold" style={{ color: 'var(--color-brand)' }}>
-                          {c.id}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <p className="text-[13px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                          {customer?.name ?? '—'}
-                        </p>
-                        <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-                          {customer?.email ?? ''}
-                        </p>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span className="font-mono-data text-[13px] font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                          ₹{c.amount.toLocaleString('en-IN')}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <span
-                          className="text-[12px] font-mono-data font-semibold px-2 py-0.5 rounded"
-                          style={{ backgroundColor: 'var(--color-bg-muted)', color: 'var(--color-text-secondary)' }}
-                        >
-                          {c.rootCause}
-                        </span>
-                      </td>
-                      <td className="px-5 py-4">
-                        <RiskBadge score={c.riskScore} />
-                      </td>
-                      <td className="px-5 py-4 text-[12px]" style={{ color: 'var(--color-text-secondary)' }}>
-                        {c.strategy}
-                      </td>
-                      <td className="px-5 py-4">
-                        <StatusBadge status={c.status} />
-                      </td>
-                      <td className="px-5 py-4 text-[12px] whitespace-nowrap" style={{ color: 'var(--color-text-muted)' }}>
-                        {fmtDate(c.createdAt)}
-                      </td>
-                      <td className="px-5 py-4">
-                        <ChevronRight size={16} style={{ color: 'var(--color-text-muted)' }} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
+      {loading ? (
+        <SkeletonLoader.Table rows={6} />
+      ) : (
+        <div className="card overflow-hidden">
+          {filtered.length === 0 ? (
+            <EmptyState
+              icon={<RefreshCcw size={20} style={{ color: 'var(--color-text-muted)' }} />}
+              title="No recovery cases found"
+              subtitle="Try adjusting your search or filter criteria."
+            />
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead>
+                  <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
+                    {HEADERS.map((h) => (
+                      <th
+                        key={h}
+                        className="text-left px-5 py-3 text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap"
+                        style={{ color: 'var(--color-text-muted)' }}
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {filtered.map((c, i) => {
+                    const customer = MOCK_CUSTOMERS.find((cu) => cu.id === c.customerId);
+                    return (
+                      <tr
+                        key={c.id}
+                        onClick={() => navigate(`/recovery/${c.id}`)}
+                        className="cursor-pointer transition-colors duration-100"
+                        style={{ borderBottom: i < filtered.length - 1 ? '1px solid var(--color-border)' : 'none' }}
+                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)')}
+                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '')}
+                      >
+                        <td className="px-5 py-4">
+                          <div className="flex items-center gap-1.5">
+                            <span className="font-mono-data text-[12px] font-bold" style={{ color: 'var(--color-brand)' }}>
+                              {c.id}
+                            </span>
+                            {c.isLive && (
+                              <span className="w-2 h-2 rounded-full bg-[var(--color-success)] animate-pulse-live" title="Live event created" />
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-5 py-4">
+                          <p className="text-[13px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
+                            {customer?.name ?? 'Rahul Sharma'}
+                          </p>
+                          <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                            {customer?.email ?? 'rahul.sharma@example.com'}
+                          </p>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span className="font-mono-data text-[13px] font-bold" style={{ color: 'var(--color-text-primary)' }}>
+                            ₹{c.amount.toLocaleString('en-IN')}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <span
+                            className="text-[12px] font-mono-data font-semibold px-2 py-0.5 rounded"
+                            style={{ backgroundColor: 'var(--color-bg-muted)', color: 'var(--color-text-secondary)' }}
+                          >
+                            {c.rootCause}
+                          </span>
+                        </td>
+                        <td className="px-5 py-4">
+                          <RiskBadge score={c.riskScore} />
+                        </td>
+                        <td className="px-5 py-4 text-[12px]" style={{ color: 'var(--color-text-secondary)' }}>
+                          {c.strategy}
+                        </td>
+                        <td className="px-5 py-4">
+                          <StatusBadge status={c.status} />
+                        </td>
+                        <td className="px-5 py-4 text-[12px] whitespace-nowrap" style={{ color: 'var(--color-text-muted)' }}>
+                          {fmtDate(c.createdAt)}
+                        </td>
+                        <td className="px-5 py-4">
+                          <ChevronRight size={16} style={{ color: 'var(--color-text-muted)' }} />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

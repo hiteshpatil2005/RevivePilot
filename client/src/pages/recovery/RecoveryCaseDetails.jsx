@@ -6,6 +6,7 @@ import {
 import {
   MOCK_RECOVERY_CASES, MOCK_CUSTOMERS, MOCK_TRANSACTIONS,
 } from '../../data/mockData';
+import { useRecoveryCases } from '../../hooks/useRecoveryCases';
 import StatusBadge from '../../components/common/StatusBadge';
 import RiskBadge from '../../components/common/RiskBadge';
 import AIRecoveryTimeline from '../../components/recovery/AIRecoveryTimeline';
@@ -42,7 +43,11 @@ function PolicyCheck({ check }) {
 export default function RecoveryCaseDetails() {
   const { caseId } = useParams();
   const navigate = useNavigate();
-  const caseData = MOCK_RECOVERY_CASES.find(c => c.id === caseId);
+  const { cases } = useRecoveryCases();
+
+  const caseData =
+    (cases && cases.find(c => c.id === caseId)) ||
+    MOCK_RECOVERY_CASES.find(c => c.id === caseId);
 
   if (!caseData) {
     return (
@@ -61,8 +66,8 @@ export default function RecoveryCaseDetails() {
     );
   }
 
-  const customer = MOCK_CUSTOMERS.find(c => c.id === caseData.customerId);
-  const txn = MOCK_TRANSACTIONS.find(t => t.id === caseData.paymentId);
+  const customer = MOCK_CUSTOMERS.find(c => c.id === caseData.customerId) || MOCK_CUSTOMERS[0];
+  const txn = MOCK_TRANSACTIONS.find(t => t.id === caseData.paymentId || t.id === caseData.transactionId) || MOCK_TRANSACTIONS[0];
 
   const fmtDate = iso => iso
     ? new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })

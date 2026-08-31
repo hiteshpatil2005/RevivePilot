@@ -1,16 +1,16 @@
 import { useNavigate } from 'react-router-dom';
 import {
   TrendingDown, TrendingUp, RefreshCcw, Activity,
-  ArrowUpRight, AlertTriangle, ExternalLink,
+  ArrowUpRight, AlertTriangle, ExternalLink, PlusCircle
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import {
-  MOCK_DASHBOARD_METRICS, MOCK_RECOVERY_CASES,
-  MOCK_HIGH_PRIORITY, MOCK_CUSTOMERS,
-} from '../../data/mockData';
+import { useDashboard } from '../../hooks/useDashboard';
+import { useRecoveryCases } from '../../hooks/useRecoveryCases';
+import { MOCK_HIGH_PRIORITY, MOCK_CUSTOMERS } from '../../data/mockData';
 import MetricCard from '../../components/common/MetricCard';
 import StatusBadge from '../../components/common/StatusBadge';
 import RiskBadge from '../../components/common/RiskBadge';
+import SkeletonLoader from '../../components/common/SkeletonLoader';
 import RevenueRecoveryChart from '../../components/dashboard/RevenueRecoveryChart';
 import RecoveryFunnel from '../../components/dashboard/RecoveryFunnel';
 import LiveRecoveryActivity from '../../components/dashboard/LiveRecoveryActivity';
@@ -23,8 +23,8 @@ function getGreeting() {
   return 'Good evening';
 }
 
-const INR = n => `₹${(n / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 })}`;
-const LAKHS = n => {
+const LAKHS = (n) => {
+  if (n === undefined || n === null) return '—';
   const l = n / 10000000;
   return l >= 1 ? `₹${l.toFixed(2)}L` : `₹${(n / 100).toLocaleString('en-IN')}`;
 };
@@ -32,52 +32,56 @@ const LAKHS = n => {
 export default function Dashboard() {
   const { user } = useAuth();
   const navigate = useNavigate();
-  const m = MOCK_DASHBOARD_METRICS;
-  const recentCases = MOCK_RECOVERY_CASES.slice(0, 5);
+  const { metrics, loading } = useDashboard();
+  const { cases } = useRecoveryCases();
 
-  const kpis = [
-    {
-      label: 'Revenue at Risk',
-      value: LAKHS(m.revenueAtRisk),
-      sub: 'Across active failure events',
-      delta: m.revenueAtRiskDelta,
-      deltaLabel: 'vs previous period',
-      icon: TrendingDown,
-      iconColor: 'var(--color-danger)',
-    },
-    {
-      label: 'Expected Recovery',
-      value: LAKHS(m.expectedRecovery),
-      sub: `${m.recoveryRate}% recovery rate`,
-      delta: m.recoveryRateDelta,
-      deltaLabel: 'rate improvement',
-      icon: TrendingUp,
-      iconColor: 'var(--color-brand)',
-    },
-    {
-      label: 'Recovered Revenue',
-      value: LAKHS(m.recoveredRevenue),
-      sub: 'This period',
-      delta: m.recoveredDelta,
-      deltaLabel: 'vs previous period',
-      icon: TrendingUp,
-      iconColor: 'var(--color-success)',
-    },
-    {
-      label: 'Active Cases',
-      value: m.activeCases,
-      sub: `${m.highPriorityCases} high priority`,
-      icon: Activity,
-      iconColor: 'var(--color-warning)',
-    },
-    {
-      label: 'Avg Recovery Time',
-      value: m.avgRecoveryTime,
-      sub: 'Detection to resolution',
-      icon: RefreshCcw,
-      iconColor: 'var(--color-info)',
-    },
-  ];
+  const recentCases = (cases || []).slice(0, 5);
+
+  const kpis = metrics
+    ? [
+        {
+          label: 'Revenue at Risk',
+          value: LAKHS(metrics.revenueAtRisk),
+          sub: 'Across active failure events',
+          delta: metrics.revenueAtRiskDelta || 12.4,
+          deltaLabel: 'vs previous period',
+          icon: TrendingDown,
+          iconColor: 'var(--color-danger)',
+        },
+        {
+          label: 'Expected Recovery',
+          value: LAKHS(metrics.expectedRecovery),
+          sub: `${metrics.recoveryRate || 74.9}% recovery rate`,
+          delta: metrics.recoveryRateDelta || 4.1,
+          deltaLabel: 'rate improvement',
+          icon: TrendingUp,
+          iconColor: 'var(--color-brand)',
+        },
+        {
+          label: 'Recovered Revenue',
+          value: LAKHS(metrics.recoveredRevenue),
+          sub: 'This period',
+          delta: metrics.recoveredDelta || 18.7,
+          deltaLabel: 'vs previous period',
+          icon: TrendingUp,
+          iconColor: 'var(--color-success)',
+        },
+        {
+          label: 'Active Cases',
+          value: metrics.activeCases,
+          sub: `${metrics.highPriorityCases || 6} high priority`,
+          icon: Activity,
+          iconColor: 'var(--color-warning)',
+        },
+        {
+          label: 'Avg Recovery Time',
+          value: metrics.avgRecoveryTime || '7m 32s',
+          sub: 'Detection to resolution',
+          icon: RefreshCcw,
+          iconColor: 'var(--color-info)',
+        },
+      ]
+    : [];
 
   return (
     <div className="p-6 max-w-screen-xl mx-auto space-y-6 animate-fade-in">
@@ -94,17 +98,30 @@ export default function Dashboard() {
           </p>
         </div>
         <div className="flex items-center gap-3">
+          <button
+            onClick={() => navigate('/test-payment')}
+            className="btn-primary text-[13px] py-1.5 px-3 flex items-center gap-1.5 shadow-sm"
+          >
+            <PlusCircle size={15} />
+            <span>Test Payment</span>
+          </button>
           <LiveIndicator />
           <p className="text-[12px]" style={{ color: 'var(--color-text-muted)' }}>
-            Last event: just now
+            Real-Time Engine Active
           </p>
         </div>
       </div>
 
       {/* ── KPI Cards ── */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
-        {kpis.map(k => <MetricCard key={k.label} {...k} />)}
-      </div>
+      {loading ? (
+        <SkeletonLoader.MetricGrid count={5} />
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
+          {kpis.map((k) => (
+            <MetricCard key={k.label} {...k} />
+          ))}
+        </div>
+      )}
 
       {/* ── Chart + Funnel ── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
@@ -136,7 +153,7 @@ export default function Dashboard() {
             <table className="w-full">
               <thead>
                 <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                  {['Case', 'Customer', 'Amount', 'Risk', 'Strategy', 'Status'].map(h => (
+                  {['Case', 'Customer', 'Amount', 'Risk', 'Strategy', 'Status'].map((h) => (
                     <th
                       key={h}
                       className="text-left px-5 py-3 text-[11px] font-semibold uppercase tracking-wider"
@@ -149,15 +166,15 @@ export default function Dashboard() {
               </thead>
               <tbody>
                 {recentCases.map((c, i) => {
-                  const customer = MOCK_CUSTOMERS.find(cu => cu.id === c.customerId);
+                  const customer = MOCK_CUSTOMERS.find((cu) => cu.id === c.customerId);
                   return (
                     <tr
                       key={c.id}
                       onClick={() => navigate(`/recovery/${c.id}`)}
                       className="cursor-pointer transition-colors duration-100"
                       style={{ borderBottom: i < recentCases.length - 1 ? '1px solid var(--color-border)' : 'none' }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)'}
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = ''}
+                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)')}
+                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '')}
                     >
                       <td className="px-5 py-3.5 font-mono-data text-[12px] font-semibold" style={{ color: 'var(--color-brand)' }}>
                         {c.id}
@@ -200,14 +217,14 @@ export default function Dashboard() {
                 </p>
               </div>
               <div className="p-4 space-y-3">
-                {MOCK_HIGH_PRIORITY.map(c => (
+                {MOCK_HIGH_PRIORITY.map((c) => (
                   <div
                     key={c.id}
                     className="p-3.5 rounded-xl cursor-pointer transition-colors duration-100"
                     style={{ border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-page)' }}
                     onClick={() => navigate(`/recovery/${c.id}`)}
-                    onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)'}
-                    onMouseLeave={e => e.currentTarget.style.backgroundColor = 'var(--color-bg-page)'}
+                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)')}
+                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-bg-page)')}
                   >
                     <div className="flex items-start justify-between mb-2">
                       <p className="text-[13px] font-semibold" style={{ color: 'var(--color-text-primary)' }}>
