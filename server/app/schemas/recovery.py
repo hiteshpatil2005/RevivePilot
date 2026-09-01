@@ -11,6 +11,17 @@ class PolicyCheckItem(BaseModel):
     passed: bool
 
 
+class RecoveryTimelineEvent(BaseModel):
+    id: Optional[str] = None
+    event_type: str = Field(..., alias="eventType")
+    timestamp: datetime
+    description: str
+    actor: str = "SYSTEM"
+    metadata: Dict[str, Any] = Field(default_factory=dict)
+
+    model_config = ConfigDict(populate_by_name=True)
+
+
 class RecoveryCaseBase(BaseModel):
     status: str = "DETECTED"
     risk_score: int = 0
@@ -48,8 +59,10 @@ class RecoveryCaseResponse(RecoveryCaseBase):
     riskScore: Optional[int] = None
     recoveryProbability: Optional[int] = None
     expectedRecovery: Optional[Decimal] = None
+    actualRecoveredAmount: Optional[Decimal] = None
 
     policyChecks: List[PolicyCheckItem] = []
+    timeline: List[RecoveryTimelineEvent] = []
     created_at: datetime
     updated_at: datetime
     resolved_at: Optional[datetime] = None

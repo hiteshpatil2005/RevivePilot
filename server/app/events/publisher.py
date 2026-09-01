@@ -64,6 +64,18 @@ class EventPublisher:
         return False
 
     @classmethod
+    async def publish_raw(cls, channel: str, payload: Dict[str, Any]) -> bool:
+        """Publish raw JSON dictionary to a designated Redis channel."""
+        try:
+            client = await get_redis_client()
+            if client:
+                await client.publish(channel, json.dumps(payload))
+                return True
+        except Exception as exc:
+            logger.warning(f"Failed to publish raw event to Redis: {exc}")
+        return False
+
+    @classmethod
     async def publish_event(
         cls,
         event_type: EventType,
@@ -80,3 +92,6 @@ class EventPublisher:
         )
         await cls.publish(event)
         return event
+
+
+event_publisher = EventPublisher()

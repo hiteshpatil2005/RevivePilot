@@ -1,15 +1,19 @@
+import { useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import {
   ArrowLeft, CheckCircle2, XCircle, AlertTriangle,
-  User, CreditCard, TrendingUp,
+  User, CreditCard, TrendingUp, RefreshCw, Zap, Play, ShieldCheck, Brain,
+  Link2, Copy, ExternalLink,
 } from 'lucide-react';
 import {
   MOCK_RECOVERY_CASES, MOCK_CUSTOMERS, MOCK_TRANSACTIONS,
 } from '../../data/mockData';
-import { useRecoveryCases } from '../../hooks/useRecoveryCases';
+import { useRecoveryCaseDetails } from '../../hooks/useRecoveryCases';
+import { recoveryApi } from '../../services/recoveryApi';
 import StatusBadge from '../../components/common/StatusBadge';
 import RiskBadge from '../../components/common/RiskBadge';
 import AIRecoveryTimeline from '../../components/recovery/AIRecoveryTimeline';
+import SkeletonLoader from '../../components/common/SkeletonLoader';
 
 function DetailRow({ label, value }) {
   return (
@@ -43,11 +47,133 @@ function PolicyCheck({ check }) {
 export default function RecoveryCaseDetails() {
   const { caseId } = useParams();
   const navigate = useNavigate();
-  const { cases } = useRecoveryCases();
+  const { caseData, loading, error, refresh } = useRecoveryCaseDetails(caseId);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [actionMsg, setActionMsg] = useState(null);
 
-  const caseData =
-    (cases && cases.find(c => c.id === caseId)) ||
-    MOCK_RECOVERY_CASES.find(c => c.id === caseId);
+  const handleAnalyze = async () => {
+    try {
+      setActionLoading(true);
+      setActionMsg('Running Detection, Root Cause & Strategy Agents...');
+      await recoveryApi.analyzeCase(caseId);
+      setActionMsg('Multi-agent analysis completed successfully!');
+      setTimeout(() => setActionMsg(null), 3500);
+      refresh();
+    } catch (err) {
+      setActionMsg(err.message || 'Analysis failed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleExecute = async () => {
+    try {
+      setActionLoading(true);
+      setActionMsg('Action Agent evaluating policy and executing intervention...');
+      await recoveryApi.executeCase(caseId);
+      setActionMsg('Recovery intervention executed successfully!');
+      setTimeout(() => setActionMsg(null), 3500);
+      refresh();
+    } catch (err) {
+      setActionMsg(err.message || 'Execution failed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleStop = async () => {
+    try {
+      setActionLoading(true);
+      await recoveryApi.stopCase(caseId, { reason: 'Merchant manual stop' });
+      refresh();
+    } catch (err) {
+      setActionMsg(err.message || 'Failed to stop');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleEscalate = async () => {
+    try {
+      setActionLoading(true);
+      await recoveryApi.escalateCase(caseId, { reason: 'Merchant manual escalation' });
+      refresh();
+    } catch (err) {
+      setActionMsg(err.message || 'Failed to escalate');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const [paymentLink, setPaymentLink] = useState(null);
+  const [copiedLink, setCopiedLink] = useState(false);
+
+  const handleGenerateLink = async () => {
+    try {
+      setActionLoading(true);
+      setActionMsg('Generating Razorpay Smart Recovery Link...');
+      const res = await recoveryApi.generatePaymentLink(caseId);
+      setPaymentLink(res.payment_link);
+      setActionMsg('Razorpay Smart Link generated!');
+      setTimeout(() => setActionMsg(null), 3000);
+      refresh();
+    } catch (err) {
+      setActionMsg(err.message || 'Failed to generate link');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  const handleSimulatePayment = async () => {
+    try {
+      setActionLoading(true);
+      setActionMsg('Simulating customer payment settlement (payment.captured webhook)...');
+      await recoveryApi.simulateWebhook({
+        event_type: 'payment.captured',
+        amount: caseData?.amount || 25000,
+        case_id: caseId,
+      });
+      setActionMsg('Razorpay webhook verified! Revenue recovered.');
+      setTimeout(() => setActionMsg(null), 4000);
+      refresh();
+    } catch (err) {
+      setActionMsg(err.message || 'Simulation failed');
+    } finally {
+      setActionLoading(false);
+    }
+  };
+
+  if (loading) {
+    return (
+      <div className="p-6 max-w-screen-xl mx-auto space-y-6">
+        <SkeletonLoader.Metrics count={3} />
+        <SkeletonLoader.Table rows={4} />
+      </div>
+    );
+  }
+
+  if (error && !caseData) {
+    return (
+      <div className="flex flex-col items-center justify-center h-full p-12">
+        <AlertTriangle size={32} style={{ color: 'var(--color-danger)' }} className="mb-4" />
+        <p className="text-[16px] font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+          Failed to load recovery case
+        </p>
+        <p className="text-[13px] mt-1 mb-4" style={{ color: 'var(--color-text-muted)' }}>
+          {error}
+        </p>
+        <div className="flex items-center gap-3">
+          <button className="btn-secondary text-[12px] px-3 py-1.5" onClick={refresh}>
+            <RefreshCw size={14} className="mr-1.5 inline" />
+            Retry
+          </button>
+          <button className="btn-ghost text-[12px]" onClick={() => navigate('/recovery')}>
+            ← Back to Recovery Cases
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   if (!caseData) {
     return (
@@ -59,15 +185,23 @@ export default function RecoveryCaseDetails() {
         <p className="text-[13px] mt-1 mb-4" style={{ color: 'var(--color-text-muted)' }}>
           Case ID: {caseId}
         </p>
-        <button className="btn-ghost" onClick={() => navigate('/recovery')}>
+        <button className="btn-ghost text-[12px]" onClick={() => navigate('/recovery')}>
           ← Back to Recovery Cases
         </button>
       </div>
     );
   }
 
-  const customer = MOCK_CUSTOMERS.find(c => c.id === caseData.customerId) || MOCK_CUSTOMERS[0];
-  const txn = MOCK_TRANSACTIONS.find(t => t.id === caseData.paymentId || t.id === caseData.transactionId) || MOCK_TRANSACTIONS[0];
+  const customer = caseData.customer || MOCK_CUSTOMERS.find(c => c.id === caseData.customerId) || {
+    name: caseData.customerName || 'Customer',
+    email: caseData.customerEmail || '—',
+  };
+  const txn = caseData.transaction || MOCK_TRANSACTIONS.find(t => t.id === caseData.paymentId || t.id === caseData.transactionId) || {
+    id: caseData.transactionId || caseData.paymentId || '—',
+    amount: caseData.amount || caseData.expected_recovery_amount || 0,
+    status: 'failed',
+    payment_method: 'CARD',
+  };
 
   const fmtDate = iso => iso
     ? new Date(iso).toLocaleString('en-IN', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
@@ -282,16 +416,114 @@ export default function RecoveryCaseDetails() {
                   <DetailRow label="Attempts Used" value={`${caseData.attempts} / ${caseData.maxAttempts}`} />
                 </div>
               ) : (
-                <div className="flex flex-col items-center py-8">
-                  <div className="animate-pulse-live">
-                    <TrendingUp size={28} style={{ color: 'var(--color-brand)' }} />
+                <div className="space-y-4">
+                  <div className="flex flex-col items-center py-4 rounded-xl" style={{ backgroundColor: 'var(--color-bg-muted)' }}>
+                    <div className="animate-pulse-live mb-2">
+                      <Zap size={24} style={{ color: 'var(--color-brand)' }} />
+                    </div>
+                    <p className="text-[13px] font-semibold" style={{ color: 'var(--color-text-primary)' }}>
+                      Autonomous Recovery Ready
+                    </p>
+                    <p className="text-[12px] mt-0.5" style={{ color: 'var(--color-text-muted)' }}>
+                      Attempt {caseData.attempts} of {caseData.maxAttempts} • Status: {caseData.status}
+                    </p>
                   </div>
-                  <p className="text-[13px] font-medium mt-3" style={{ color: 'var(--color-text-primary)' }}>
-                    Recovery in progress
-                  </p>
-                  <p className="text-[12px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                    Attempt {caseData.attempts} of {caseData.maxAttempts}
-                  </p>
+
+                  {actionMsg && (
+                    <div className="p-2.5 rounded-lg text-[12px] text-center font-medium animate-fade-in"
+                      style={{ backgroundColor: 'var(--color-brand-light)', color: 'var(--color-brand)' }}>
+                      {actionMsg}
+                    </div>
+                  )}
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                    <button
+                      onClick={handleAnalyze}
+                      disabled={actionLoading}
+                      className="btn-primary text-[12px] py-2 flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Brain size={14} className={actionLoading ? 'animate-spin' : ''} />
+                      Run AI Diagnosis
+                    </button>
+                    <button
+                      onClick={handleExecute}
+                      disabled={actionLoading || caseData.policyPassed === false}
+                      className="btn-secondary text-[12px] py-2 flex items-center justify-center gap-1.5 cursor-pointer"
+                    >
+                      <Play size={14} />
+                      Execute Strategy
+                    </button>
+                  </div>
+
+                  {/* Razorpay Alternative Link Controls */}
+                  <div className="pt-2" style={{ borderTop: '1px solid var(--color-border)' }}>
+                    {paymentLink || caseData.metadata?.razorpay_payment_link ? (
+                      <div className="p-3 rounded-lg space-y-2.5" style={{ backgroundColor: 'var(--color-bg-subtle)', border: '1px solid var(--color-border)' }}>
+                        <div className="flex items-center justify-between">
+                          <span className="text-[11px] font-semibold flex items-center gap-1.5" style={{ color: 'var(--color-brand)' }}>
+                            <Link2 size={13} />
+                            Razorpay Smart Recovery Link
+                          </span>
+                          <span className="badge badge-success text-[10px]">Active</span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <input
+                            type="text"
+                            readOnly
+                            value={paymentLink || caseData.metadata?.razorpay_payment_link}
+                            className="text-[11px] font-mono-data px-2 py-1 rounded w-full bg-input border"
+                          />
+                          <button
+                            onClick={() => {
+                              navigator.clipboard.writeText(paymentLink || caseData.metadata?.razorpay_payment_link);
+                              setCopiedLink(true);
+                              setTimeout(() => setCopiedLink(false), 2000);
+                            }}
+                            className="btn-secondary text-[11px] px-2.5 py-1 flex items-center gap-1 flex-shrink-0"
+                          >
+                            <Copy size={12} />
+                            {copiedLink ? 'Copied' : 'Copy'}
+                          </button>
+                        </div>
+                        <button
+                          onClick={handleSimulatePayment}
+                          disabled={actionLoading}
+                          className="btn-success text-[11px] w-full py-1.5 flex items-center justify-center gap-1.5 cursor-pointer font-medium"
+                        >
+                          <CheckCircle2 size={13} />
+                          Simulate Customer Settlement (Webhook)
+                        </button>
+                      </div>
+                    ) : (
+                      <button
+                        onClick={handleGenerateLink}
+                        disabled={actionLoading}
+                        className="btn-secondary text-[12px] w-full py-2 flex items-center justify-center gap-1.5 cursor-pointer"
+                      >
+                        <Link2 size={14} />
+                        Generate Razorpay Smart Link
+                      </button>
+                    )}
+                  </div>
+
+                  <div className="flex items-center justify-between pt-2" style={{ borderTop: '1px solid var(--color-border)' }}>
+                    <button
+                      onClick={handleStop}
+                      disabled={actionLoading}
+                      className="text-[11px] font-medium cursor-pointer"
+                      style={{ color: 'var(--color-danger)' }}
+                    >
+                      Stop Recovery
+                    </button>
+                    <button
+                      onClick={handleEscalate}
+                      disabled={actionLoading}
+                      className="text-[11px] font-medium cursor-pointer"
+                      style={{ color: 'var(--color-text-muted)' }}
+                    >
+                      Escalate to Human →
+                    </button>
+                  </div>
                 </div>
               )}
             </div>

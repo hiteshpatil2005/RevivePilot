@@ -28,32 +28,47 @@ const MAX_NOTIFICATIONS = 50;
  * Map a raw realtime event to a live activity entry (for the activity feed).
  */
 function eventToActivity(event) {
-  const typeMap = {
-    [REALTIME_EVENT_TYPES.PAYMENT_FAILED]:       { type: 'detected',  message: 'Failure detected' },
-    [REALTIME_EVENT_TYPES.RECOVERY_CASE_CREATED]:{ type: 'detected',  message: 'Case created' },
-    [REALTIME_EVENT_TYPES.RECOVERY_CASE_UPDATED]:{ type: 'action',    message: 'Case updated' },
-    [REALTIME_EVENT_TYPES.AGENT_STARTED]:        { type: 'strategy',  message: 'Agent started' },
-    [REALTIME_EVENT_TYPES.AGENT_COMPLETED]:      { type: 'strategy',  message: 'Agent completed' },
-    [REALTIME_EVENT_TYPES.POLICY_APPROVED]:      { type: 'policy',    message: 'Policy approved' },
-    [REALTIME_EVENT_TYPES.POLICY_BLOCKED]:       { type: 'policy',    message: 'Policy blocked' },
-    [REALTIME_EVENT_TYPES.ACTION_STARTED]:       { type: 'action',    message: 'Action started' },
-    [REALTIME_EVENT_TYPES.ACTION_COMPLETED]:     { type: 'action',    message: 'Action completed' },
-    [REALTIME_EVENT_TYPES.RECOVERY_SUCCESS]:     { type: 'recovered', message: 'Recovery successful' },
-    [REALTIME_EVENT_TYPES.RECOVERY_FAILED]:      { type: 'failed',    message: 'Recovery failed' },
-  };
+  const evType = (event.event_type || event.type || '').toLowerCase();
+  const data = event.data || {};
+  const caseId = data.case_id || event.caseId || '';
+  const amt = data.amount ? `₹${Number(data.amount).toLocaleString('en-IN')}` : '';
+  const reason = data.failure_reason || '';
 
-  const mapped = typeMap[event.type] || { type: 'action', message: event.type };
   const now = new Date();
   const ts = `${String(now.getHours()).padStart(2,'0')}:${String(now.getMinutes()).padStart(2,'0')}:${String(now.getSeconds()).padStart(2,'0')}`;
 
+  if (evType.includes('failed')) {
+    return {
+      id: event.event_id || `act_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      type: 'detected',
+      ts,
+      message: `Payment failed — ${amt}`,
+      detail: `${reason ? reason + ' • ' : ''}${caseId ? 'Case ' + caseId : 'Risk detected'}`,
+      caseId: caseId || null,
+      isDemo: false,
+    };
+  }
+
+  if (evType.includes('success') || evType.includes('recovered')) {
+    return {
+      id: event.event_id || `act_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+      type: 'recovered',
+      ts,
+      message: `Payment success — ${amt}`,
+      detail: caseId ? `Case ${caseId} resolved` : 'Autonomous recovery verified',
+      caseId: caseId || null,
+      isDemo: false,
+    };
+  }
+
   return {
-    id: `act_demo_${Date.now()}`,
-    type: mapped.type,
+    id: event.event_id || `act_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    type: 'action',
     ts,
-    message: mapped.message,
-    detail: event.data?.detail || `${event.caseId || ''} — ${event.type}`,
-    caseId: event.caseId || null,
-    isDemo: true,
+    message: event.type || event.event_type || 'Payment event',
+    detail: data.detail || (caseId ? `Case ${caseId}` : 'Event emitted'),
+    caseId: caseId || null,
+    isDemo: false,
   };
 }
 
@@ -61,28 +76,38 @@ function eventToActivity(event) {
  * Map a raw realtime event to a notification entry.
  */
 function eventToNotification(event) {
-  const categoryMap = {
-    [REALTIME_EVENT_TYPES.PAYMENT_FAILED]:        { category: 'Recovery', severity: 'danger' },
-    [REALTIME_EVENT_TYPES.RECOVERY_SUCCESS]:      { category: 'Recovery', severity: 'success' },
-    [REALTIME_EVENT_TYPES.RECOVERY_FAILED]:       { category: 'Recovery', severity: 'danger' },
-    [REALTIME_EVENT_TYPES.POLICY_BLOCKED]:        { category: 'Policy',   severity: 'warning' },
-    [REALTIME_EVENT_TYPES.POLICY_APPROVED]:       { category: 'Policy',   severity: 'info' },
-    [REALTIME_EVENT_TYPES.AGENT_STARTED]:         { category: 'AI Agent', severity: 'info' },
-    [REALTIME_EVENT_TYPES.AGENT_COMPLETED]:       { category: 'AI Agent', severity: 'info' },
-  };
+  const evType = (event.event_type || event.type || '').toLowerCase();
+  const data = event.data || {};
+  const caseId = data.case_id || event.caseId || null;
+  const amt = data.amount ? `₹${Number(data.amount).toLocaleString('en-IN')}` : '';
 
-  const mapped = categoryMap[event.type] || { category: 'System', severity: 'info' };
+  let category = 'System';
+  let severity = 'info';
+  let title = 'Payment Event';
+  let message = data.detail || 'Event received';
+
+  if (evType.includes('failed')) {
+    category = 'Recovery';
+    severity = 'danger';
+    title = `Payment Failed: ${amt}`;
+    message = `Transaction flagged (${data.failure_reason || 'Failure'}). ${caseId ? 'Case ' + caseId + ' created.' : ''}`;
+  } else if (evType.includes('success') || evType.includes('recovered')) {
+    category = 'Recovery';
+    severity = 'success';
+    title = `Payment Recovered: ${amt}`;
+    message = `Transaction successfully verified. ${caseId ? 'Case ' + caseId + ' closed.' : ''}`;
+  }
 
   return {
-    id: `notif_demo_${Date.now()}`,
-    category: mapped.category,
-    severity: mapped.severity,
-    title: event.type.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase()),
-    message: event.data?.detail || `Event received for ${event.caseId || 'system'}`,
-    timestamp: new Date().toISOString(),
+    id: event.event_id || `notif_${Date.now()}_${Math.random().toString(36).slice(2, 6)}`,
+    category,
+    severity,
+    title,
+    message,
+    timestamp: event.timestamp || new Date().toISOString(),
     read: false,
-    caseId: event.caseId || null,
-    isDemo: true,
+    caseId,
+    isDemo: false,
   };
 }
 
@@ -197,3 +222,5 @@ export function useRealtimeContext() {
   if (!ctx) throw new Error('useRealtimeContext must be used inside RealtimeProvider');
   return ctx;
 }
+
+export const useRealtime = useRealtimeContext;

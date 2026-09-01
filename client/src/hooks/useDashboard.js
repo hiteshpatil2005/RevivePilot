@@ -42,48 +42,43 @@ export function useDashboard() {
         // Clone metrics
         const updated = { ...prev };
 
-        switch (event.type) {
-          case REALTIME_EVENT_TYPES.PAYMENT_FAILED:
-          case REALTIME_EVENT_TYPES.RECOVERY_CASE_CREATED: {
-            const amount = event.data?.amount || 0;
-            updated.revenueAtRisk = (updated.revenueAtRisk || 0) + amount;
-            updated.activeCases = (updated.activeCases || 0) + 1;
-            updated.totalEventsToday = (updated.totalEventsToday || 0) + 1;
-            break;
-          }
+        const evType = (event.type || event.event_type || '').toLowerCase();
 
-          case REALTIME_EVENT_TYPES.RECOVERY_SUCCESS: {
-            const amount = event.data?.amount || 0;
-            updated.revenueAtRisk = Math.max(0, (updated.revenueAtRisk || 0) - amount);
-            updated.recoveredRevenue = (updated.recoveredRevenue || 0) + amount;
-            updated.activeCases = Math.max(0, (updated.activeCases || 0) - 1);
-            if (updated.revenueAtRisk + updated.recoveredRevenue > 0) {
-              updated.recoveryRate = +(
-                (updated.recoveredRevenue / (updated.revenueAtRisk + updated.recoveredRevenue)) *
-                100
-              ).toFixed(1);
-            }
-            break;
+        if (
+          evType === 'payment.failed' ||
+          evType === 'recovery.case.created' ||
+          evType === String(REALTIME_EVENT_TYPES.PAYMENT_FAILED).toLowerCase() ||
+          evType === String(REALTIME_EVENT_TYPES.RECOVERY_CASE_CREATED).toLowerCase()
+        ) {
+          const amount = event.data?.amount || 0;
+          updated.revenueAtRisk = (updated.revenueAtRisk || 0) + amount;
+          updated.activeCases = (updated.activeCases || 0) + 1;
+          updated.totalEventsToday = (updated.totalEventsToday || 0) + 1;
+        } else if (
+          evType === 'payment.success' ||
+          evType === String(REALTIME_EVENT_TYPES.RECOVERY_SUCCESS).toLowerCase()
+        ) {
+          const amount = event.data?.amount || 0;
+          updated.revenueAtRisk = Math.max(0, (updated.revenueAtRisk || 0) - amount);
+          updated.recoveredRevenue = (updated.recoveredRevenue || 0) + amount;
+          updated.activeCases = Math.max(0, (updated.activeCases || 0) - 1);
+          if (updated.revenueAtRisk + updated.recoveredRevenue > 0) {
+            updated.recoveryRate = +(
+              (updated.recoveredRevenue / (updated.revenueAtRisk + updated.recoveredRevenue)) *
+              100
+            ).toFixed(1);
           }
-
-          case REALTIME_EVENT_TYPES.RECOVERY_FAILED:
-          case REALTIME_EVENT_TYPES.CASE_STOPPED: {
-            updated.activeCases = Math.max(0, (updated.activeCases || 0) - 1);
-            break;
-          }
-
-          case REALTIME_EVENT_TYPES.AGENT_STARTED: {
-            updated.agentsRunning = Math.min(4, (updated.agentsRunning || 0) + 1);
-            break;
-          }
-
-          case REALTIME_EVENT_TYPES.AGENT_COMPLETED: {
-            updated.agentsRunning = Math.max(0, (updated.agentsRunning || 1) - 1);
-            break;
-          }
-
-          default:
-            break;
+        } else if (
+          evType === 'recovery.failed' ||
+          evType === 'case.stopped' ||
+          evType === String(REALTIME_EVENT_TYPES.RECOVERY_FAILED).toLowerCase() ||
+          evType === String(REALTIME_EVENT_TYPES.CASE_STOPPED).toLowerCase()
+        ) {
+          updated.activeCases = Math.max(0, (updated.activeCases || 0) - 1);
+        } else if (evType === 'agent.started' || evType === String(REALTIME_EVENT_TYPES.AGENT_STARTED).toLowerCase()) {
+          updated.agentsRunning = Math.min(4, (updated.agentsRunning || 0) + 1);
+        } else if (evType === 'agent.completed' || evType === String(REALTIME_EVENT_TYPES.AGENT_COMPLETED).toLowerCase()) {
+          updated.agentsRunning = Math.max(0, (updated.agentsRunning || 1) - 1);
         }
 
         return updated;

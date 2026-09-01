@@ -44,15 +44,25 @@ async def override_get_db() -> AsyncGenerator[AsyncSession, None]:
     async with TestingSessionLocal() as session:
         try:
             yield session
-            await session.commit()
+            if session.is_active:
+                try:
+                    await session.commit()
+                except Exception:
+                    pass
         except Exception:
-            await session.rollback()
+            try:
+                await session.rollback()
+            except Exception:
+                pass
             raise
         finally:
             await session.close()
 
 
 app.dependency_overrides[get_db] = override_get_db
+
+from app.payments.simulator import PaymentSimulator
+PaymentSimulator.set_session_maker(TestingSessionLocal)
 
 
 @pytest_asyncio.fixture

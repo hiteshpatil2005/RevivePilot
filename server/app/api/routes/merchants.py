@@ -11,6 +11,7 @@ router = APIRouter(prefix="/merchants", tags=["Merchants"])
 
 
 @router.get("/current", response_model=MerchantResponse)
+@router.get("/me", response_model=MerchantResponse)
 async def get_current_merchant(
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
@@ -20,6 +21,7 @@ async def get_current_merchant(
 
 
 @router.put("/current", response_model=MerchantResponse)
+@router.put("/me", response_model=MerchantResponse)
 async def update_current_merchant(
     data: MerchantUpdate,
     current_user: User = Depends(get_current_user),

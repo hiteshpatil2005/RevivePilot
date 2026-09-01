@@ -1,10 +1,10 @@
 import uuid
 from typing import Optional
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+from pydantic import BaseModel, EmailStr, Field, ConfigDict, model_validator
 
 
 class UserRegister(BaseModel):
-    business_name: Optional[str] = Field(None, alias="businessName")
+    business_name: str = Field(..., alias="businessName", min_length=2)
     full_name: Optional[str] = Field(None, alias="fullName")
     name: Optional[str] = None
     email: EmailStr
@@ -12,13 +12,19 @@ class UserRegister(BaseModel):
 
     model_config = ConfigDict(populate_by_name=True)
 
+    @model_validator(mode="after")
+    def check_name_provided(self):
+        if not (self.full_name or self.name or "").strip():
+            raise ValueError("Full name is required.")
+        return self
+
     @property
     def resolved_name(self) -> str:
-        return self.full_name or self.name or self.email.split("@")[0]
+        return (self.full_name or self.name or "").strip()
 
     @property
     def resolved_business_name(self) -> str:
-        return self.business_name or f"{self.resolved_name}'s Business"
+        return self.business_name.strip()
 
 
 class UserLogin(BaseModel):

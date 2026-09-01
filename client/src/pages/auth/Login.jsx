@@ -53,23 +53,30 @@ export default function Login() {
 
       {/* Demo hint */}
       <div
-        className="flex items-start gap-3 p-3.5 rounded-lg mb-6"
+        onClick={() => setForm({ email: 'demo@revivepilot.ai', password: 'demo123' })}
+        className="flex items-start gap-3 p-3.5 rounded-lg mb-6 cursor-pointer hover:opacity-90 transition-opacity"
         style={{ backgroundColor: 'var(--color-brand-light)', border: '1px solid rgba(37,99,235,0.18)' }}
+        title="Click to autofill credentials"
       >
         <div
           className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
           style={{ backgroundColor: 'var(--color-brand)' }}
         />
-        <div>
-          <p
-            className="text-[12px] font-semibold"
-            style={{ color: 'var(--color-brand)' }}
-          >
-            Demo credentials
-          </p>
-          <p className="text-[11px] mt-0.5 font-mono-data" style={{ color: 'var(--color-brand)' }}>
-            demo@revivepilot.ai · demo123
-          </p>
+        <div className="flex-1 flex items-center justify-between">
+          <div>
+            <p
+              className="text-[12px] font-semibold"
+              style={{ color: 'var(--color-brand)' }}
+            >
+              Demo credentials
+            </p>
+            <p className="text-[11px] mt-0.5 font-mono-data" style={{ color: 'var(--color-brand)' }}>
+              demo@revivepilot.ai · demo123
+            </p>
+          </div>
+          <span className="text-[11px] font-medium" style={{ color: 'var(--color-brand)' }}>
+            Autofill →
+          </span>
         </div>
       </div>
 

@@ -1,6 +1,7 @@
 import { useEffect, useRef } from 'react';
 import { X, CheckCheck, Bell, ShieldCheck, Bot, Settings, ChevronRight } from 'lucide-react';
 import { useRealtimeContext } from '../../context/RealtimeContext';
+import { notificationApi } from '../../services/notificationApi';
 
 const CATEGORY_ICONS = {
   Recovery: { icon: Bell,        color: 'var(--color-brand)' },
@@ -49,6 +50,16 @@ export default function NotificationPanel({ open, onClose }) {
     return () => document.removeEventListener('mousedown', handleClick);
   }, [open, onClose]);
 
+  const handleMarkAllRead = () => {
+    markAllNotificationsRead();
+    notificationApi.markAllAsRead().catch(() => {});
+  };
+
+  const handleMarkOneRead = (id) => {
+    markNotificationRead(id);
+    notificationApi.markAsRead(id).catch(() => {});
+  };
+
   if (!open) return null;
 
   return (
@@ -90,7 +101,7 @@ export default function NotificationPanel({ open, onClose }) {
         <div className="flex items-center gap-2">
           {unreadCount > 0 && (
             <button
-              onClick={markAllNotificationsRead}
+              onClick={handleMarkAllRead}
               className="flex items-center gap-1 text-[12px] font-medium cursor-pointer transition-colors"
               style={{ color: 'var(--color-brand)', background: 'none', border: 'none' }}
             >
@@ -131,7 +142,7 @@ export default function NotificationPanel({ open, onClose }) {
                   borderBottom: idx < notifications.length - 1 ? '1px solid var(--color-border)' : 'none',
                   backgroundColor: notif.read ? 'transparent' : `${sev.bg}66`,
                 }}
-                onClick={() => markNotificationRead(notif.id)}
+                onClick={() => handleMarkOneRead(notif.id)}
                 onMouseEnter={e => { if (notif.read) e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)'; }}
                 onMouseLeave={e => { if (notif.read) e.currentTarget.style.backgroundColor = ''; }}
               >

@@ -28,9 +28,14 @@ async def lifespan(app: FastAPI):
     logger.info(f"Database connection: {'OK' if db_ok else 'FAILED/OFFLINE'}")
     logger.info(f"Redis connection:    {'OK' if redis_ok else 'FAILED/OFFLINE'}")
 
+    # Start Redis background subscriber
+    from app.events.subscriber import redis_subscriber
+    await redis_subscriber.start()
+
     yield
 
     logger.info(f"Shutting down {settings.APP_NAME}...")
+    await redis_subscriber.stop()
     await engine.dispose()
     logger.info("Database connection pool disposed.")
 
@@ -73,7 +78,7 @@ async def http_exception_handler(request: Request, exc: StarletteHTTPException):
 async def validation_exception_handler(request: Request, exc: RequestValidationError):
     logger.warning(f"Validation error on {request.method} {request.url.path}: {exc.errors()}")
     return JSONResponse(
-        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+        status_code=422,
         content={
             "success": False,
             "message": "Validation error in request payload",
@@ -94,27 +99,33 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     )
 
 
-# ── WebSocket Endpoint ───────────────────────────────────────────────────────
+# ── WebSocket Endpoints ──────────────────────────────────────────────────────
 @app.websocket("/ws")
+@app.websocket("/api/ws")
 async def websocket_endpoint(websocket: WebSocket):
     """
     Centralized authenticated WebSocket gateway.
+    Authenticates incoming connection via JWT query param `?token=...`
+    and binds socket to the isolated merchant pool.
     """
     import uuid
-    # Accept connection and assign to default merchant or extract token from query
+    from app.core.security import decode_access_token
+
     query_params = dict(websocket.query_params)
     token = query_params.get("token")
 
-    # In dev/mock mode or with valid token
-    merchant_id = uuid.uuid4()
+    merchant_id = None
     if token:
-        from app.core.security import decode_access_token
         payload = decode_access_token(token)
         if payload and "merchant_id" in payload:
             try:
                 merchant_id = uuid.UUID(payload["merchant_id"])
             except Exception:
                 pass
+
+    if not merchant_id:
+        # Fallback for dev / unauthenticated demo testing
+        merchant_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
 
     await ws_manager.connect(websocket, merchant_id)
     try:

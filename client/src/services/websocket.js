@@ -25,14 +25,15 @@
  *   Set VITE_WS_URL in .env.local → wsService will connect automatically.
  */
 
-const WS_URL = import.meta.env.VITE_WS_URL || '';
+const DEFAULT_WS_HOST = typeof window !== 'undefined' ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:8000/ws` : 'ws://localhost:8000/ws';
+const WS_URL = import.meta.env.VITE_WS_URL || DEFAULT_WS_HOST;
 
 const STATUS = {
   DISCONNECTED:  'DISCONNECTED',
   CONNECTING:    'CONNECTING',
   CONNECTED:     'CONNECTED',
   RECONNECTING:  'RECONNECTING',
-  DEMO:          'DEMO',          // mock mode — no real backend
+  DEMO:          'DEMO',          // fallback mode
 };
 
 const MAX_RECONNECT_ATTEMPTS = 5;
@@ -47,7 +48,7 @@ class WebSocketService {
     this._reconnectAttempts = 0;
     this._reconnectTimer = null;
     this._intentionalClose = false;
-    this._demoMode = !WS_URL;               // demo mode when no URL configured
+    this._demoMode = false;
   }
 
   // ── Public API ─────────────────────────────────────────────────────────────
@@ -56,15 +57,9 @@ class WebSocketService {
   get isDemoMode() { return this._demoMode; }
 
   /**
-   * connect() — Establish WebSocket connection.
-   * In demo mode (no VITE_WS_URL), sets status to DEMO.
+   * connect() — Establish WebSocket connection with JWT token.
    */
   connect() {
-    if (this._demoMode) {
-      this._setStatus(STATUS.DEMO);
-      return;
-    }
-
     if (this._ws && (this._ws.readyState === WebSocket.OPEN || this._ws.readyState === WebSocket.CONNECTING)) {
       return; // already connected / connecting
     }
@@ -73,7 +68,10 @@ class WebSocketService {
     this._setStatus(STATUS.CONNECTING);
 
     try {
-      this._ws = new WebSocket(WS_URL);
+      const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
+      const url = token ? `${WS_URL}?token=${encodeURIComponent(token)}` : WS_URL;
+
+      this._ws = new WebSocket(url);
       this._ws.onopen    = this._onOpen.bind(this);
       this._ws.onmessage = this._onMessage.bind(this);
       this._ws.onerror   = this._onError.bind(this);
@@ -91,8 +89,15 @@ class WebSocketService {
     this._intentionalClose = true;
     this._clearReconnectTimer();
     if (this._ws) {
-      this._ws.close(1000, 'Client disconnect');
+      const ws = this._ws;
       this._ws = null;
+      ws.onerror = null;
+      ws.onclose = null;
+      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+        try {
+          ws.close(1000, 'Client disconnect');
+        } catch (_) {}
+      }
     }
     this._setStatus(STATUS.DISCONNECTED);
   }
@@ -158,6 +163,7 @@ class WebSocketService {
   }
 
   _onError(err) {
+    if (this._intentionalClose) return;
     console.warn('[WS] Connection error:', err);
     // onClose will fire after this
   }

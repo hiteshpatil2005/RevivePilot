@@ -48,13 +48,12 @@ export const paymentApi = {
    */
   async createTestPayment({ customerId, amount, scenario, currency = 'INR', description }) {
     return withFallback(
-      () => axiosInstance.post('/payments/test', {
+      () => axiosInstance.post('/payments/simulator/event', {
         customerId,
         amount,
-        scenario,
-        currency,
-        description,
-        source: 'merchant_dashboard',
+        scenario: scenario === 'SUCCESS' ? 'NORMAL' : scenario,
+        failureReason: scenario === 'SUCCESS' ? null : scenario,
+        paymentMethod: 'CARD',
       }),
       async () => {
         // Demo mode: simulate the full pipeline
@@ -70,13 +69,69 @@ export const paymentApi = {
           currency,
           status: isSuccess ? 'COMPLETED' : 'FAILED',
           message: isSuccess
-            ? `Test payment of ₹${(amount / 100).toLocaleString('en-IN')} completed successfully`
+            ? `Test payment of ₹${Number(amount).toLocaleString('en-IN')} completed successfully`
             : `Test payment failed — scenario: ${scenario}. Recovery case ${caseId} created.`,
           recoveryTriggered: !isSuccess,
           note: 'Demo mode — no real payment processed',
         };
       },
       'paymentApi.createTestPayment'
+    );
+  },
+
+  async startSimulator(config) {
+    return withFallback(
+      () => axiosInstance.post('/payments/simulator/start', config),
+      { running: true, scenario: config.scenario || 'FAILURE_SPIKE', eventsPerMinute: config.events_per_minute || 10 },
+      'paymentApi.startSimulator'
+    );
+  },
+
+  async stopSimulator() {
+    return withFallback(
+      () => axiosInstance.post('/payments/simulator/stop'),
+      { running: false, scenario: 'IDLE', eventsPerMinute: 0 },
+      'paymentApi.stopSimulator'
+    );
+  },
+
+  async pauseSimulator() {
+    return withFallback(
+      () => axiosInstance.post('/payments/simulator/pause'),
+      { running: false },
+      'paymentApi.pauseSimulator'
+    );
+  },
+
+  async resumeSimulator() {
+    return withFallback(
+      () => axiosInstance.post('/payments/simulator/resume'),
+      { running: true },
+      'paymentApi.resumeSimulator'
+    );
+  },
+
+  async getSimulatorStatus() {
+    return withFallback(
+      () => axiosInstance.get('/payments/simulator/status'),
+      { running: false, scenario: 'NORMAL_TRAFFIC', eventsPerMinute: 10, totalEventsEmitted: 0 },
+      'paymentApi.getSimulatorStatus'
+    );
+  },
+
+  async triggerSimulatorEvent(data) {
+    return withFallback(
+      () => axiosInstance.post('/payments/simulator/event', data),
+      { success: true, message: 'Simulation event emitted' },
+      'paymentApi.triggerSimulatorEvent'
+    );
+  },
+
+  async getPaymentEvents(params = {}) {
+    return withFallback(
+      () => axiosInstance.get('/payments/events', { params }),
+      { events: [], total: 0, page: 1, limit: 20 },
+      'paymentApi.getPaymentEvents'
     );
   },
 };

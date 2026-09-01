@@ -1,27 +1,49 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { transactionApi } from '../services/transactionApi';
 import { useRealtimeContext } from '../context/RealtimeContext';
 import { REALTIME_EVENT_TYPES } from '../data/mockData';
 
-export function useTransactions(initialParams = {}) {
+export function useTransactions(params = {}) {
   const [transactions, setTransactions] = useState([]);
+  const [pagination, setPagination] = useState({ page: 1, limit: 20, total: 0, pages: 1 });
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const { subscribe } = useRealtimeContext();
+
+  const paramsRef = useRef(params);
+  paramsRef.current = params;
 
   const fetchTransactions = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await transactionApi.getTransactions(initialParams);
-      setTransactions(res.transactions || res || []);
+      const res = await transactionApi.getTransactions(paramsRef.current);
+      const list = res.transactions || (Array.isArray(res) ? res : []);
+      setTransactions(list);
+      if (res.pagination) {
+        setPagination(res.pagination);
+      } else {
+        setPagination({
+          page: paramsRef.current.page || 1,
+          limit: paramsRef.current.limit || list.length,
+          total: res.total || list.length,
+          pages: Math.ceil((res.total || list.length) / (paramsRef.current.limit || 20)) || 1,
+        });
+      }
     } catch (err) {
       console.error('[useTransactions] Failed to fetch transactions:', err);
       setError(err.message || 'Failed to load transactions');
     } finally {
       setLoading(false);
     }
-  }, [initialParams]);
+  }, [
+    params.page,
+    params.limit,
+    params.status,
+    params.search,
+    params.dateFrom,
+    params.dateTo,
+  ]);
 
   useEffect(() => {
     fetchTransactions();
@@ -54,6 +76,8 @@ export function useTransactions(initialParams = {}) {
 
   return {
     transactions,
+    pagination,
+    total: pagination.total,
     loading,
     error,
     refresh: fetchTransactions,

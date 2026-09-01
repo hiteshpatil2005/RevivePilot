@@ -18,6 +18,13 @@ from app.schemas.policy import (
     PolicyEvaluationRequest,
     PolicyEvaluationResponse,
 )
+from app.schemas.customer import (
+    CustomerCreate,
+    CustomerUpdate,
+    CustomerResponse,
+    CustomerListResponse,
+)
+from app.schemas.notification import NotificationResponse, NotificationListResponse
 from app.schemas.audit import AuditLogCreate, AuditLogResponse
 
 __all__ = [
@@ -45,4 +52,10 @@ __all__ = [
     "PolicyEvaluationResponse",
     "AuditLogCreate",
     "AuditLogResponse",
+    "CustomerCreate",
+    "CustomerUpdate",
+    "CustomerResponse",
+    "CustomerListResponse",
+    "NotificationResponse",
+    "NotificationListResponse",
 ]

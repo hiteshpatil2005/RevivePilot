@@ -2,13 +2,15 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   CreditCard, ShieldAlert, CheckCircle2, XCircle, ArrowRight,
-  RefreshCcw, AlertTriangle, Play, Sparkles, User, DollarSign, Info
+  RefreshCcw, AlertTriangle, Play, Sparkles, User, DollarSign, Info, Sliders, Webhook,
 } from 'lucide-react';
 import { paymentApi, TEST_SCENARIOS } from '../../services/paymentApi';
+import { recoveryApi } from '../../services/recoveryApi';
 import { MOCK_CUSTOMERS } from '../../data/mockData';
 import { useRealtimeContext } from '../../context/RealtimeContext';
 import { useToast } from '../../context/ToastContext';
 import TestModeBanner from '../../components/common/TestModeBanner';
+import SimulatorControlModal from '../../components/simulator/SimulatorControlModal';
 
 const AMOUNT_PRESETS = [5000, 15000, 25000, 45000, 85000];
 
@@ -22,6 +24,7 @@ export default function TestPayment() {
   const [scenario, setScenario] = useState('BANK_TIMEOUT');
   const [loading, setLoading] = useState(false);
   const [result, setResult] = useState(null);
+  const [simulatorOpen, setSimulatorOpen] = useState(false);
 
   const selectedCustomer = MOCK_CUSTOMERS.find((c) => c.id === customerId) || MOCK_CUSTOMERS[0];
   const activeScenario = TEST_SCENARIOS.find((s) => s.id === scenario);
@@ -90,21 +93,64 @@ export default function TestPayment() {
     }
   };
 
+  const handleSimulateWebhook = async () => {
+    try {
+      setLoading(true);
+      toast.info('Emitting HMAC-SHA256 signed Razorpay webhook (payment.failed)...');
+      await recoveryApi.simulateWebhook({
+        event_type: 'payment.failed',
+        amount: Number(amount),
+        failure_reason: scenario,
+      });
+      toast.success('Razorpay webhook verified & ingested! Real-time case created.');
+    } catch (err) {
+      toast.error(err.message || 'Webhook simulation failed');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   return (
     <div className="p-6 max-w-4xl mx-auto space-y-6 animate-fade-in">
       {/* ── Test Mode Notice Banner ── */}
       <TestModeBanner />
 
       {/* ── Page Header ── */}
-      <div>
-        <h1 className="text-[22px] font-bold" style={{ color: 'var(--color-text-primary)' }}>
-          Create Test Payment
-        </h1>
-        <p className="text-[14px] mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-          Simulate controlled Razorpay checkout scenarios to observe RevivePilot’s real-time detection,
-          diagnosis, and autonomous recovery pipeline.
-        </p>
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-[22px] font-bold" style={{ color: 'var(--color-text-primary)' }}>
+            Create Test Payment
+          </h1>
+          <p className="text-[14px] mt-1" style={{ color: 'var(--color-text-secondary)' }}>
+            Simulate controlled payment scenarios to observe RevivePilot’s real-time detection,
+            risk classification, and autonomous recovery pipeline.
+          </p>
+        </div>
+        <div className="flex items-center gap-2 flex-wrap sm:flex-nowrap">
+          <button
+            type="button"
+            onClick={handleSimulateWebhook}
+            disabled={loading}
+            className="btn-secondary text-[13px] px-3.5 py-2 flex items-center gap-1.5 flex-shrink-0 cursor-pointer"
+          >
+            <Webhook size={14} style={{ color: 'var(--color-warning)' }} />
+            <span>Simulate Webhook</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setSimulatorOpen(true)}
+            className="btn-secondary text-[13px] px-4 py-2 flex items-center gap-2 flex-shrink-0 cursor-pointer"
+          >
+            <Sliders size={15} style={{ color: 'var(--color-brand)' }} />
+            <span>Launch Simulator</span>
+          </button>
+        </div>
       </div>
+
+      <SimulatorControlModal
+        isOpen={simulatorOpen}
+        onClose={() => setSimulatorOpen(false)}
+      />
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         {/* ── Payment Form (2 cols) ── */}

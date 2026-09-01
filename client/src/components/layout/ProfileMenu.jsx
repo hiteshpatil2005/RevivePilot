@@ -98,10 +98,10 @@ export default function ProfileMenu({ open, onClose }) {
             {user.businessName}
           </p>
           <span
-            className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full"
+            className="ml-auto text-[10px] font-semibold px-2 py-0.5 rounded-full uppercase"
             style={{ backgroundColor: 'var(--color-brand-light)', color: 'var(--color-brand)' }}
           >
-            {user.plan || 'Growth'}
+            {user.role || user.plan || 'OWNER'}
           </span>
         </div>
       </div>

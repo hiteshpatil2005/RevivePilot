@@ -13,11 +13,14 @@ export function useRecoveryCases(initialParams = {}) {
   const [error, setError] = useState(null);
   const { subscribe } = useRealtimeContext();
 
+  const paramsKey = JSON.stringify(initialParams);
+
   const fetchCases = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
-      const res = await recoveryApi.getCases(initialParams);
+      const params = JSON.parse(paramsKey);
+      const res = await recoveryApi.getCases(params);
       setCases(res.cases || res || []);
     } catch (err) {
       console.error('[useRecoveryCases] Failed to fetch cases:', err);
@@ -25,7 +28,7 @@ export function useRecoveryCases(initialParams = {}) {
     } finally {
       setLoading(false);
     }
-  }, [initialParams]);
+  }, [paramsKey]);
 
   useEffect(() => {
     fetchCases();

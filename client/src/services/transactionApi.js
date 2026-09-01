@@ -16,8 +16,22 @@ export const transactionApi = {
    */
   async getTransactions(params = {}) {
     return withFallback(
-      () => axiosInstance.get('/transactions', { params }),
-      { transactions: MOCK_TRANSACTIONS, total: MOCK_TRANSACTIONS.length },
+      async () => {
+        const res = await axiosInstance.get('/transactions', { params });
+        const items = res.data?.items || res.data?.transactions || (Array.isArray(res.data) ? res.data : []);
+        const pagination = res.data?.pagination || {
+          page: params.page || 1,
+          limit: params.limit || items.length,
+          total: items.length,
+          pages: 1,
+        };
+        return { transactions: items, total: pagination.total, pagination };
+      },
+      {
+        transactions: MOCK_TRANSACTIONS,
+        total: MOCK_TRANSACTIONS.length,
+        pagination: { page: 1, limit: 20, total: MOCK_TRANSACTIONS.length, pages: 1 },
+      },
       'transactionApi.getTransactions'
     );
   },

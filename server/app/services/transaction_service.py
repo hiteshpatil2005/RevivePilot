@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import Optional, List, Tuple
 from sqlalchemy import select, func
 from sqlalchemy.orm import joinedload
@@ -17,6 +18,8 @@ class TransactionService:
         limit: int = 20,
         status: Optional[str] = None,
         search: Optional[str] = None,
+        date_from: Optional[datetime] = None,
+        date_to: Optional[datetime] = None,
     ) -> Tuple[List[Transaction], int]:
         """
         List transactions strictly scoped to the authenticated merchant.
@@ -37,6 +40,12 @@ class TransactionService:
                 | (Customer.name.ilike(search_pattern))
                 | (Customer.email.ilike(search_pattern))
             )
+
+        if date_from:
+            query = query.where(Transaction.created_at >= date_from)
+
+        if date_to:
+            query = query.where(Transaction.created_at <= date_to)
 
         # Count total matching
         count_query = select(func.count()).select_from(query.subquery())

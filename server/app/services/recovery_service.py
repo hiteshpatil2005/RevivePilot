@@ -8,16 +8,23 @@ from fastapi import HTTPException, status
 from app.models.recovery_case import RecoveryCase, RecoveryStatus
 from app.models.customer import Customer
 from app.models.transaction import Transaction
-from app.schemas.recovery import RecoveryCaseResponse, PolicyCheckItem
-from app.events.publisher import EventPublisher
-from app.events.event_types import EventType
+from app.models.audit_log import AuditLog
+from app.schemas.recovery import RecoveryCaseResponse, PolicyCheckItem, RecoveryTimelineEvent
 
 
 class RecoveryService:
     @staticmethod
-    def _format_case(case: RecoveryCase) -> RecoveryCaseResponse:
+    def _format_case(
+        case: RecoveryCase,
+        timeline: Optional[List[RecoveryTimelineEvent]] = None,
+    ) -> RecoveryCaseResponse:
         """Helper to transform RecoveryCase DB model into response model."""
         priority = "high" if case.risk_score >= 80 else ("medium" if case.risk_score >= 50 else "low")
+        customer_name = case.customer.name if getattr(case, "customer", None) else "Customer"
+        amount_val = case.expected_recovery_amount
+        if getattr(case, "transaction", None) and case.transaction.amount:
+            amount_val = case.transaction.amount
+
         policy_checks = [
             PolicyCheckItem(
                 label="Maximum retries",
@@ -50,7 +57,7 @@ class RecoveryService:
             actual_recovered_amount=case.actual_recovered_amount,
             attempt_count=case.attempt_count,
             max_attempts=case.max_attempts,
-            amount=case.expected_recovery_amount,
+            amount=amount_val,
             priority=priority,
             customerId=str(case.customer_id),
             transactionId=str(case.transaction_id),
@@ -59,7 +66,9 @@ class RecoveryService:
             riskScore=case.risk_score,
             recoveryProbability=case.recovery_probability,
             expectedRecovery=case.expected_recovery_amount,
+            actualRecoveredAmount=case.actual_recovered_amount,
             policyChecks=policy_checks,
+            timeline=timeline or [],
             created_at=case.created_at,
             updated_at=case.updated_at,
             resolved_at=case.resolved_at,
@@ -134,7 +143,32 @@ class RecoveryService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Recovery case not found",
             )
-        return RecoveryService._format_case(case)
+
+        # Retrieve audit logs as timeline events for this recovery case
+        audit_query = (
+            select(AuditLog)
+            .where(
+                AuditLog.recovery_case_id == case_id,
+                AuditLog.merchant_id == merchant_id,
+            )
+            .order_by(AuditLog.created_at.asc())
+        )
+        audit_res = await session.execute(audit_query)
+        audit_logs = list(audit_res.scalars().all())
+
+        timeline_events = [
+            RecoveryTimelineEvent(
+                id=str(log.id),
+                event_type=log.event_type,
+                timestamp=log.created_at,
+                description=log.description,
+                actor=log.actor_type,
+                metadata=log.metadata_ or {},
+            )
+            for log in audit_logs
+        ]
+
+        return RecoveryService._format_case(case, timeline=timeline_events)
 
     @staticmethod
     async def retry_case(

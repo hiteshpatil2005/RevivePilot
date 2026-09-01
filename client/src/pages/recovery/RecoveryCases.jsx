@@ -158,7 +158,9 @@ export default function RecoveryCases() {
                 </thead>
                 <tbody>
                   {filtered.map((c, i) => {
-                    const customer = MOCK_CUSTOMERS.find((cu) => cu.id === c.customerId);
+                    const cust = c.customer || MOCK_CUSTOMERS.find((cu) => cu.id === c.customerId) || {};
+                    const custName = cust.name || c.customerName || 'Customer';
+                    const custEmail = cust.email || c.customerEmail || '—';
                     return (
                       <tr
                         key={c.id}
@@ -180,10 +182,10 @@ export default function RecoveryCases() {
                         </td>
                         <td className="px-5 py-4">
                           <p className="text-[13px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                            {customer?.name ?? 'Rahul Sharma'}
+                            {custName}
                           </p>
                           <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-                            {customer?.email ?? 'rahul.sharma@example.com'}
+                            {custEmail}
                           </p>
                         </td>
                         <td className="px-5 py-4">

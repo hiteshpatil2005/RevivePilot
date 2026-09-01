@@ -81,4 +81,57 @@ export const recoveryApi = {
       `recoveryApi.escalateCase(${id})`
     );
   },
+
+  /**
+   * analyzeCase(id)
+   * Runs the autonomous multi-agent pipeline on the case.
+   */
+  async analyzeCase(id) {
+    return withFallback(
+      () => axiosInstance.post(`/recovery/cases/${id}/analyze`),
+      { success: true, message: 'Multi-agent analysis completed (demo mode)', _isMock: true },
+      `recoveryApi.analyzeCase(${id})`
+    );
+  },
+
+  /**
+   * executeCase(id)
+   * Executes autonomous recovery action approved by policy.
+   */
+  async executeCase(id) {
+    return withFallback(
+      () => axiosInstance.post(`/recovery/cases/${id}/execute`),
+      { success: true, message: 'Recovery action executed (demo mode)', _isMock: true },
+      `recoveryApi.executeCase(${id})`
+    );
+  },
+
+  /**
+   * generatePaymentLink(id)
+   * Generates a smart alternative recovery link via Razorpay.
+   */
+  async generatePaymentLink(id) {
+    return withFallback(
+      () => axiosInstance.post(`/recovery/cases/${id}/payment-link`),
+      {
+        success: true,
+        payment_link: `https://rzp.io/i/rec_${id?.slice(0, 8) || 'demo'}`,
+        link_id: `plink_${id?.slice(0, 8) || 'demo'}`,
+        _isMock: true,
+      },
+      `recoveryApi.generatePaymentLink(${id})`
+    );
+  },
+
+  /**
+   * simulateWebhook(params)
+   * Simulates a cryptographically signed Razorpay webhook.
+   */
+  async simulateWebhook(params = {}) {
+    return withFallback(
+      () => axiosInstance.post('/webhooks/razorpay/simulate', null, { params }),
+      { success: true, message: 'Simulated Razorpay webhook processed', _isMock: true },
+      'recoveryApi.simulateWebhook'
+    );
+  },
 };

@@ -1,4 +1,5 @@
 import uuid
+from datetime import datetime
 from typing import Optional
 from fastapi import APIRouter, Depends, Query
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -19,6 +20,8 @@ async def list_transactions(
     limit: int = Query(20, ge=1, le=100),
     status: Optional[str] = Query(None),
     search: Optional[str] = Query(None),
+    date_from: Optional[datetime] = Query(None, alias="dateFrom"),
+    date_to: Optional[datetime] = Query(None, alias="dateTo"),
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
@@ -32,6 +35,8 @@ async def list_transactions(
         limit=limit,
         status=status,
         search=search,
+        date_from=date_from,
+        date_to=date_to,
     )
     pages = (total + limit - 1) // limit if total > 0 else 1
 

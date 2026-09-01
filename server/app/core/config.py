@@ -46,6 +46,7 @@ class Settings(BaseSettings):
     # Razorpay (Test Mode)
     RAZORPAY_KEY_ID: str = "rzp_test_mock"
     RAZORPAY_KEY_SECRET: str = "mock_secret"
+    RAZORPAY_WEBHOOK_SECRET: str = "rzp_webhook_secret_dev"
 
     # AI
     GEMINI_API_KEY: str = "mock_gemini_key"

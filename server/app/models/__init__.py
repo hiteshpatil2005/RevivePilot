@@ -10,6 +10,7 @@ from app.models.recovery_case import RecoveryCase, RecoveryStatus
 from app.models.policy import Policy
 from app.models.audit_log import AuditLog
 from app.models.notification import Notification
+from app.models.payment_event import PaymentEvent
 
 __all__ = [
     "Merchant",
@@ -23,4 +24,5 @@ __all__ = [
     "Policy",
     "AuditLog",
     "Notification",
+    "PaymentEvent",
 ]
