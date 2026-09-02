@@ -1,7 +1,6 @@
 import { useEffect, useRef } from 'react';
-import { User, Settings, LogOut, Sun, Moon, ChevronRight, Building2 } from 'lucide-react';
+import { User, Settings, LogOut, Building2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
-import { useThemeContext } from '../../context/ThemeContext';
 
 /**
  * ProfileMenu — user profile dropdown.
@@ -12,7 +11,6 @@ import { useThemeContext } from '../../context/ThemeContext';
  */
 export default function ProfileMenu({ open, onClose }) {
   const { user, logout } = useAuth();
-  const { theme, toggleTheme } = useThemeContext();
   const menuRef = useRef(null);
 
   // Close on outside click
@@ -47,12 +45,6 @@ export default function ProfileMenu({ open, onClose }) {
       icon: Settings,
       onClick: () => onClose(),
     },
-    {
-      id: 'theme',
-      label: theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode',
-      icon: theme === 'dark' ? Sun : Moon,
-      onClick: () => { toggleTheme(); onClose(); },
-    },
   ];
 
   return (
@@ -63,7 +55,7 @@ export default function ProfileMenu({ open, onClose }) {
         width: '240px',
         backgroundColor: 'var(--color-bg-card)',
         border: '1px solid var(--color-border)',
-        borderRadius: '12px',
+        borderRadius: '8px',
         boxShadow: 'var(--shadow-modal)',
         overflow: 'hidden',
       }}

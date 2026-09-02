@@ -1,9 +1,10 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { RefreshCcw, ChevronRight, PlusCircle } from 'lucide-react';
+import {
+  RefreshCcw, ChevronRight, ExternalLink, Filter, Search, X
+} from 'lucide-react';
 import { useRecoveryCases } from '../../hooks/useRecoveryCases';
 import { MOCK_CUSTOMERS } from '../../data/mockData';
-import SectionHeader from '../../components/common/SectionHeader';
 import SearchInput from '../../components/common/SearchInput';
 import FilterDropdown from '../../components/common/FilterDropdown';
 import StatusBadge from '../../components/common/StatusBadge';
@@ -15,6 +16,7 @@ const STATUS_OPTIONS = [
   { value: '', label: 'All Statuses' },
   { value: 'recovered',  label: 'Recovered'  },
   { value: 'executing',  label: 'Executing'  },
+  { value: 'action_required', label: 'Action Required' },
   { value: 'pending',    label: 'Pending'    },
   { value: 'analyzing',  label: 'Analyzing'  },
   { value: 'failed',     label: 'Failed'     },
@@ -39,7 +41,7 @@ const STRATEGY_OPTIONS = [
   { value: 'Re-mandate Request', label: 'Re-mandate Request'  },
 ];
 
-const HEADERS = ['Case', 'Customer', 'Amount', 'Root Cause', 'Risk', 'Strategy', 'Status', 'Created', ''];
+const HEADERS = ['Case ID', 'Customer Profile', 'Payment Value', 'Root Cause Diagnosis', 'Risk Score', 'Assigned AI Strategy', 'Lifecycle Status', 'Detected At', ''];
 
 function fmtDate(iso) {
   if (!iso) return '—';
@@ -48,7 +50,7 @@ function fmtDate(iso) {
   const diffMs = now - d;
   const diffH = diffMs / 3600000;
   if (diffH < 24) return diffH < 1 ? 'Just now' : `${Math.floor(diffH)}h ago`;
-  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short' });
+  return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
 }
 
 function riskBand(score) {
@@ -83,138 +85,180 @@ export default function RecoveryCases() {
   }, [cases, search, statusF, riskF, strategyF]);
 
   return (
-    <div className="p-6 max-w-screen-xl mx-auto space-y-5 animate-fade-in">
-      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-        <SectionHeader
-          title="Recovery Cases"
-          subtitle="Autonomous tracking, state machine transitions, and intervention log."
-        />
-        <div className="flex items-center gap-2 flex-shrink-0">
-          <button
-            onClick={() => navigate('/test-payment')}
-            className="btn-primary text-[13px] py-2 px-3 flex items-center gap-1.5"
+    <div className="w-full max-w-[1720px] px-6 lg:px-10 py-7 space-y-6 mx-auto animate-fade-in text-slate-900 font-sans">
+      {/* ── Enterprise Header (No Simulation Buttons) ── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-200">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              Recovery Operations
+            </h1>
+            <span className="px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-blue-50 text-[#0c6ff9] border border-blue-200">
+              Autonomous Queue
+            </span>
+          </div>
+          <p className="text-sm text-slate-600 mt-1">
+            Real-time tracking of failed payment interventions, policy guardrails, and automated recovery executions
+          </p>
+        </div>
+
+        {/* Clean Production Action Toolbar */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <a
+            href="http://localhost:5174"
+            target="_blank"
+            rel="noreferrer"
+            className="h-9 px-4 rounded text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-[#0c6ff9] hover:border-[#0c6ff9] flex items-center gap-2 transition-all shadow-2xs"
+            title="Open customer checkout portal on port 5174"
           >
-            <PlusCircle size={15} />
-            <span>Simulate Payment</span>
-          </button>
-          <button onClick={refresh} className="btn-ghost p-2" title="Refresh cases">
-            <RefreshCcw size={15} />
+            <ExternalLink size={14} className="text-[#0c6ff9]" />
+            <span>Customer Store (:5174)</span>
+          </a>
+
+          <button
+            type="button"
+            onClick={refresh}
+            className="h-9 px-3.5 rounded text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+            title="Refresh recovery cases"
+          >
+            <RefreshCcw size={14} className={loading ? 'animate-spin' : ''} />
+            <span>Refresh</span>
           </button>
         </div>
       </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <SearchInput
-          value={search}
-          onChange={setSearch}
-          placeholder="Search cases, customers…"
-          className="w-full sm:w-64"
-        />
-        <FilterDropdown value={statusF}   onChange={setStatusF}   options={STATUS_OPTIONS}   className="w-40" />
-        <FilterDropdown value={riskF}     onChange={setRiskF}     options={RISK_OPTIONS}     className="w-44" />
-        <FilterDropdown value={strategyF} onChange={setStrategyF} options={STRATEGY_OPTIONS} className="w-48" />
-        {(search || statusF || riskF || strategyF) && (
-          <button
-            className="btn-ghost text-[12px]"
-            onClick={() => { setSearch(''); setStatusF(''); setRiskF(''); setStrategyF(''); }}
-          >
-            Clear filters
-          </button>
-        )}
+      {/* ── Unified Expanded Filter Toolbar ── */}
+      <div className="p-4 bg-white border border-slate-200 rounded-lg shadow-2xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3 flex-1">
+          <div className="w-full sm:w-72">
+            <SearchInput
+              value={search}
+              onChange={setSearch}
+              placeholder="Search case ID, customer, root cause..."
+            />
+          </div>
+          <FilterDropdown value={statusF}   onChange={setStatusF}   options={STATUS_OPTIONS}   className="w-44" />
+          <FilterDropdown value={riskF}     onChange={setRiskF}     options={RISK_OPTIONS}     className="w-44" />
+          <FilterDropdown value={strategyF} onChange={setStrategyF} options={STRATEGY_OPTIONS} className="w-48" />
+
+          {(search || statusF || riskF || strategyF) && (
+            <button
+              type="button"
+              className="text-xs text-red-600 hover:text-red-800 font-semibold flex items-center gap-1 px-2.5 py-1.5 rounded hover:bg-red-50 cursor-pointer transition-colors"
+              onClick={() => { setSearch(''); setStatusF(''); setRiskF(''); setStrategyF(''); }}
+            >
+              <X size={13} />
+              <span>Reset Filters</span>
+            </button>
+          )}
+        </div>
+
+        <div className="text-xs font-semibold text-slate-500">
+          Showing <strong className="text-slate-900">{filtered.length}</strong> active cases
+        </div>
       </div>
 
-      {/* Result count */}
-      <p className="text-[12px]" style={{ color: 'var(--color-text-muted)' }}>
-        {filtered.length} case{filtered.length !== 1 ? 's' : ''} found
-      </p>
-
-      {/* Table */}
+      {/* ── Expanded Data Table Card (Pure White, Comfortable Spacing) ── */}
       {loading ? (
-        <SkeletonLoader.Table rows={6} />
+        <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-2xs">
+          <SkeletonLoader.Table rows={8} />
+        </div>
       ) : (
-        <div className="card overflow-hidden">
+        <div className="bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden">
           {filtered.length === 0 ? (
-            <EmptyState
-              icon={<RefreshCcw size={20} style={{ color: 'var(--color-text-muted)' }} />}
-              title="No recovery cases found"
-              subtitle="Try adjusting your search or filter criteria."
-            />
+            <div className="py-16">
+              <EmptyState
+                icon={<RefreshCcw size={24} className="text-slate-400" />}
+                title="No recovery cases match your query"
+                subtitle="Try resetting active filters or adjusting the search term."
+              />
+            </div>
           ) : (
-            <div className="overflow-x-auto">
-              <table className="w-full">
+            <div className="overflow-x-auto bg-white">
+              <table className="w-full text-left text-xs bg-white">
                 <thead>
-                  <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                    {HEADERS.map((h) => (
+                  <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                    {HEADERS.map((h, idx) => (
                       <th
-                        key={h}
-                        className="text-left px-5 py-3 text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap"
-                        style={{ color: 'var(--color-text-muted)' }}
+                        key={idx}
+                        className="px-6 py-4 whitespace-nowrap"
                       >
                         {h}
                       </th>
                     ))}
                   </tr>
                 </thead>
-                <tbody>
-                  {filtered.map((c, i) => {
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {filtered.map((c) => {
                     const cust = c.customer || MOCK_CUSTOMERS.find((cu) => cu.id === c.customerId) || {};
                     const custName = cust.name || c.customerName || 'Customer';
                     const custEmail = cust.email || c.customerEmail || '—';
+
                     return (
                       <tr
                         key={c.id}
                         onClick={() => navigate(`/recovery/${c.id}`)}
-                        className="cursor-pointer transition-colors duration-100"
-                        style={{ borderBottom: i < filtered.length - 1 ? '1px solid var(--color-border)' : 'none' }}
-                        onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)')}
-                        onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '')}
+                        className="hover:bg-slate-50/80 cursor-pointer transition-colors bg-white group"
                       >
-                        <td className="px-5 py-4">
-                          <div className="flex items-center gap-1.5">
-                            <span className="font-mono-data text-[12px] font-bold" style={{ color: 'var(--color-brand)' }}>
+                        {/* Case ID */}
+                        <td className="px-6 py-4.5">
+                          <div className="flex items-center gap-2">
+                            <span className="font-mono font-bold text-[#0c6ff9] text-sm group-hover:underline">
                               {c.id}
                             </span>
                             {c.isLive && (
-                              <span className="w-2 h-2 rounded-full bg-[var(--color-success)] animate-pulse-live" title="Live event created" />
+                              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" title="Live event active" />
                             )}
                           </div>
                         </td>
-                        <td className="px-5 py-4">
-                          <p className="text-[13px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
+
+                        {/* Customer */}
+                        <td className="px-6 py-4.5">
+                          <p className="font-semibold text-slate-900 text-sm">
                             {custName}
                           </p>
-                          <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
                             {custEmail}
                           </p>
                         </td>
-                        <td className="px-5 py-4">
-                          <span className="font-mono-data text-[13px] font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                            ₹{c.amount.toLocaleString('en-IN')}
+
+                        {/* Amount */}
+                        <td className="px-6 py-4.5">
+                          <span className="font-mono font-bold text-slate-900 text-sm">
+                            ₹{c.amount.toLocaleString('en-IN')}.00
                           </span>
                         </td>
-                        <td className="px-5 py-4">
-                          <span
-                            className="text-[12px] font-mono-data font-semibold px-2 py-0.5 rounded"
-                            style={{ backgroundColor: 'var(--color-bg-muted)', color: 'var(--color-text-secondary)' }}
-                          >
+
+                        {/* Root Cause */}
+                        <td className="px-6 py-4.5">
+                          <span className="font-mono text-xs font-semibold px-2.5 py-1 rounded bg-slate-100 text-slate-700 border border-slate-200">
                             {c.rootCause}
                           </span>
                         </td>
-                        <td className="px-5 py-4">
+
+                        {/* Risk Band */}
+                        <td className="px-6 py-4.5">
                           <RiskBadge score={c.riskScore} />
                         </td>
-                        <td className="px-5 py-4 text-[12px]" style={{ color: 'var(--color-text-secondary)' }}>
+
+                        {/* Strategy */}
+                        <td className="px-6 py-4.5 text-slate-800 font-medium">
                           {c.strategy}
                         </td>
-                        <td className="px-5 py-4">
+
+                        {/* Status */}
+                        <td className="px-6 py-4.5">
                           <StatusBadge status={c.status} />
                         </td>
-                        <td className="px-5 py-4 text-[12px] whitespace-nowrap" style={{ color: 'var(--color-text-muted)' }}>
+
+                        {/* Timestamp */}
+                        <td className="px-6 py-4.5 text-slate-500 whitespace-nowrap text-[11px]">
                           {fmtDate(c.createdAt)}
                         </td>
-                        <td className="px-5 py-4">
-                          <ChevronRight size={16} style={{ color: 'var(--color-text-muted)' }} />
+
+                        {/* Action Chevron */}
+                        <td className="px-6 py-4.5 text-right">
+                          <ChevronRight size={16} className="text-slate-400 group-hover:text-[#0c6ff9] group-hover:translate-x-1 transition-all" />
                         </td>
                       </tr>
                     );

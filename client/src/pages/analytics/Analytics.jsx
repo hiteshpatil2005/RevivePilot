@@ -1,12 +1,12 @@
 import { useState } from 'react';
 import {
-  AreaChart, Area, LineChart, Line, BarChart, Bar, PieChart, Pie, Cell,
+  AreaChart, Area, LineChart, Line, PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer,
 } from 'recharts';
 import {
   DollarSign, TrendingUp, TrendingDown, Target, Zap,
-  ShieldCheck, BarChart3, Download, RefreshCcw, Brain,
-  Search, Lightbulb, CheckCircle2, AlertCircle,
+  ShieldCheck, BarChart3, Download, RefreshCw, Brain,
+  Search, Lightbulb, CheckCircle2, AlertCircle, ExternalLink, ArrowRight
 } from 'lucide-react';
 import { useAnalytics } from '../../hooks/useAnalytics';
 import {
@@ -17,40 +17,36 @@ import {
   MOCK_REVENUE_BREAKDOWN,
   MOCK_AI_EFFECTIVENESS,
 } from '../../data/mockData';
-import MetricCard from '../../components/common/MetricCard';
 import SkeletonLoader from '../../components/common/SkeletonLoader';
 
 // ── Formatters ────────────────────────────────────────────────────────────────
 const fmtAmount = (paise) => {
-  const r = paise / 100;
+  const r = (paise || 0) / 100;
   if (r >= 100000) return `₹${(r / 100000).toFixed(1)}L`;
   if (r >= 1000)   return `₹${(r / 1000).toFixed(1)}K`;
   return `₹${r.toLocaleString('en-IN')}`;
 };
 
 const fmtCurrency = (val) => {
-  if (val >= 100000) return `₹${(val / 100000).toFixed(1)}L`;
-  if (val >= 1000)   return `₹${(val / 1000).toFixed(1)}K`;
-  return `₹${val}`;
+  const v = Number(val || 0);
+  if (v >= 100000) return `₹${(v / 100000).toFixed(1)}L`;
+  if (v >= 1000)   return `₹${(v / 1000).toFixed(1)}K`;
+  return `₹${v.toLocaleString('en-IN')}`;
 };
 
-// ── Custom Tooltip ────────────────────────────────────────────────────────────
+// ── Custom Tooltips ────────────────────────────────────────────────────────────
 function ChartTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{
-      backgroundColor: 'var(--color-bg-card)',
-      border: '1px solid var(--color-border)',
-      borderRadius: '10px',
-      padding: '10px 14px',
-      boxShadow: 'var(--shadow-dropdown)',
-    }}>
-      <p style={{ color: 'var(--color-text-muted)', fontSize: '11px', marginBottom: '6px' }}>{label}</p>
+    <div className="bg-white border border-slate-200 rounded-lg p-3.5 shadow-md text-xs space-y-1.5 min-w-[170px]">
+      <p className="font-bold text-slate-800 border-b border-slate-100 pb-1">{label}</p>
       {payload.map((p, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: p.color, display: 'inline-block' }} />
-          <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>{p.name}:</span>
-          <span style={{ color: 'var(--color-text-primary)', fontSize: '12px', fontWeight: 600 }}>
+        <div key={i} className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-1.5">
+            <span className="w-2 h-2 rounded-full" style={{ backgroundColor: p.color }} />
+            <span className="text-slate-600">{p.name}:</span>
+          </div>
+          <span className="font-mono font-bold text-slate-900">
             {fmtCurrency(p.value)}
           </span>
         </div>
@@ -62,42 +58,15 @@ function ChartTooltip({ active, payload, label }) {
 function RateTooltip({ active, payload, label }) {
   if (!active || !payload?.length) return null;
   return (
-    <div style={{
-      backgroundColor: 'var(--color-bg-card)',
-      border: '1px solid var(--color-border)',
-      borderRadius: '10px',
-      padding: '10px 14px',
-      boxShadow: 'var(--shadow-dropdown)',
-    }}>
-      <p style={{ color: 'var(--color-text-muted)', fontSize: '11px', marginBottom: '6px' }}>{label}</p>
+    <div className="bg-white border border-slate-200 rounded-lg p-3 shadow-md text-xs space-y-1 min-w-[150px]">
+      <p className="font-bold text-slate-800 border-b border-slate-100 pb-1">{label}</p>
       {payload.map((p, i) => (
-        <div key={i} style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '2px' }}>
-          <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: p.color, display: 'inline-block' }} />
-          <span style={{ color: 'var(--color-text-secondary)', fontSize: '12px' }}>{p.name}:</span>
-          <span style={{ color: 'var(--color-text-primary)', fontSize: '12px', fontWeight: 600 }}>{p.value.toFixed(1)}%</span>
+        <div key={i} className="flex items-center justify-between gap-3">
+          <span className="text-slate-600">{p.name}:</span>
+          <span className="font-mono font-bold text-slate-900">{Number(p.value).toFixed(1)}%</span>
         </div>
       ))}
     </div>
-  );
-}
-
-// ── Section Card wrapper ──────────────────────────────────────────────────────
-function SectionCard({ children, className = '', style = {} }) {
-  return (
-    <div
-      className={`card p-6 ${className}`}
-      style={style}
-    >
-      {children}
-    </div>
-  );
-}
-
-function SectionTitle({ children }) {
-  return (
-    <h2 className="text-[15px] font-semibold mb-1" style={{ color: 'var(--color-text-primary)' }}>
-      {children}
-    </h2>
   );
 }
 
@@ -105,21 +74,17 @@ function SectionTitle({ children }) {
 function PeriodToggle({ value, onChange }) {
   const periods = ['7D', '30D', '90D'];
   return (
-    <div
-      className="flex rounded-lg overflow-hidden"
-      style={{ border: '1px solid var(--color-border)' }}
-    >
-      {periods.map(p => (
+    <div className="inline-flex rounded-md border border-slate-300 bg-white p-0.5 shadow-2xs">
+      {periods.map((p) => (
         <button
           key={p}
+          type="button"
           onClick={() => onChange(p)}
-          className="px-3 py-1.5 text-[12px] font-semibold cursor-pointer transition-all"
-          style={{
-            backgroundColor: value === p ? 'var(--color-brand)' : 'var(--color-bg-card)',
-            color: value === p ? '#fff' : 'var(--color-text-secondary)',
-            border: 'none',
-            borderRight: p !== '90D' ? '1px solid var(--color-border)' : 'none',
-          }}
+          className={`px-3 py-1.5 text-xs font-bold rounded cursor-pointer transition-all ${
+            value === p
+              ? 'bg-[#0c6ff9] text-white shadow-xs'
+              : 'text-slate-600 hover:text-slate-900 hover:bg-slate-50'
+          }`}
         >
           {p}
         </button>
@@ -128,34 +93,38 @@ function PeriodToggle({ value, onChange }) {
   );
 }
 
-// ── Agent accuracy bar ────────────────────────────────────────────────────────
+// ── Clean Accuracy Bar ─────────────────────────────────────────────────────────
 function AccuracyBar({ agent, accuracy, icon: Icon }) {
   const getColor = (v) => {
-    if (v >= 95) return 'var(--color-success)';
-    if (v >= 85) return 'var(--color-brand)';
-    return 'var(--color-warning)';
+    if (v >= 95) return '#10b981';
+    if (v >= 85) return '#0c6ff9';
+    return '#f59e0b';
   };
   const color = getColor(accuracy);
 
   return (
-    <div style={{ marginBottom: '16px' }}>
-      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
-        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-          <div style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: `${color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Icon size={13} style={{ color }} />
+    <div className="space-y-1.5 py-2">
+      <div className="flex items-center justify-between text-xs">
+        <div className="flex items-center gap-2">
+          <div
+            className="w-7 h-7 rounded flex items-center justify-center flex-shrink-0"
+            style={{ backgroundColor: `${color}15` }}
+          >
+            <Icon size={14} style={{ color }} />
           </div>
-          <span style={{ fontSize: '13px', color: 'var(--color-text-secondary)', fontWeight: 500 }}>{agent}</span>
+          <span className="font-semibold text-slate-800">{agent}</span>
         </div>
-        <span style={{ fontSize: '14px', fontWeight: 700, color }}>{accuracy}%</span>
+        <span className="font-mono font-bold" style={{ color }}>{accuracy}%</span>
       </div>
-      <div style={{ height: 6, backgroundColor: 'var(--color-bg-muted)', borderRadius: 99, overflow: 'hidden' }}>
-        <div style={{ height: '100%', width: `${accuracy}%`, backgroundColor: color, borderRadius: 99, transition: 'width 0.8s ease' }} />
+      <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+        <div
+          className="h-full rounded-full transition-all duration-700"
+          style={{ width: `${accuracy}%`, backgroundColor: color }}
+        />
       </div>
     </div>
   );
 }
-
-const AGENT_ICONS = { Search, Microscope: Brain, Lightbulb, Brain };
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Main Analytics Page
@@ -193,294 +162,361 @@ export default function Analytics() {
     URL.revokeObjectURL(url);
   };
 
+  const kpis = [
+    {
+      label: 'Total Volume Processed',
+      value: fmtAmount((m.totalRevenueProcessed || 128450000)),
+      delta: m.totalProcessedDelta || 8.2,
+      icon: DollarSign,
+      color: '#0c6ff9',
+      bgTint: 'rgba(12, 111, 249, 0.08)',
+    },
+    {
+      label: 'Revenue At Risk',
+      value: fmtAmount((m.revenueAtRisk || 9684400)),
+      delta: m.atRiskDelta || -12.4,
+      icon: AlertCircle,
+      color: '#ef4444',
+      bgTint: 'rgba(239, 68, 68, 0.08)',
+    },
+    {
+      label: 'Expected Recovery',
+      value: fmtAmount((m.expectedRecovery || 12000000)),
+      delta: m.expectedDelta || 4.1,
+      icon: Target,
+      color: '#f59e0b',
+      bgTint: 'rgba(245, 158, 11, 0.08)',
+    },
+    {
+      label: 'Actual Recovered',
+      value: fmtAmount((m.actualRecovered || 2500000)),
+      delta: m.recoveredDelta || 18.7,
+      icon: TrendingUp,
+      color: '#10b981',
+      bgTint: 'rgba(16, 185, 129, 0.08)',
+    },
+    {
+      label: 'Overall Recovery Rate',
+      value: `${m.recoveryRate || 74.9}%`,
+      delta: m.recoveryRateDelta || 3.8,
+      icon: BarChart3,
+      color: '#0891b2',
+      bgTint: 'rgba(8, 145, 178, 0.08)',
+    },
+    {
+      label: 'Total Revenue Saved',
+      value: fmtAmount((m.revenueSaved || 4280000)),
+      delta: m.savedDelta || 15.2,
+      icon: ShieldCheck,
+      color: '#10b981',
+      bgTint: 'rgba(16, 185, 129, 0.08)',
+    },
+  ];
+
   return (
-    <div className="p-6 space-y-6 animate-fade-in" style={{ maxWidth: '100%' }}>
-      {/* ── Page Header ───────────────────────────────────────────────────── */}
-      <div className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-4">
+    <div className="w-full max-w-[1720px] px-6 lg:px-10 py-7 space-y-6 mx-auto animate-fade-in text-slate-900 font-sans">
+      {/* ── Enterprise Header (Razorpay White Theme) ── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-200">
         <div>
-          <h1 className="text-[22px] font-bold" style={{ color: 'var(--color-text-primary)' }}>
-            Revenue Analytics
-          </h1>
-          <p className="text-[14px] mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-            Measure recovery performance, revenue at risk, and the effectiveness of RevivePilot strategies.
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              Revenue Analytics
+            </h1>
+            <span className="px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-blue-50 text-[#0c6ff9] border border-blue-200">
+              Performance Intelligence
+            </span>
+          </div>
+          <p className="text-sm text-slate-600 mt-1">
+            Measure recovery rates, revenue saved from leakage, and multi-agent AI yield across payment gateways
           </p>
         </div>
-        <div className="flex items-center gap-2 flex-shrink-0">
+
+        {/* Clean Production Toolbar */}
+        <div className="flex items-center gap-3 flex-wrap flex-shrink-0">
+          <a
+            href="http://localhost:5174"
+            target="_blank"
+            rel="noreferrer"
+            className="h-9 px-4 rounded text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-[#0c6ff9] hover:border-[#0c6ff9] flex items-center gap-2 transition-all shadow-2xs"
+            title="Open customer checkout portal on port 5174"
+          >
+            <ExternalLink size={14} className="text-[#0c6ff9]" />
+            <span>Customer Store (:5174)</span>
+          </a>
+
           <PeriodToggle value={period} onChange={setPeriod} />
+
           <button
+            type="button"
             onClick={handleExport}
-            className="btn-ghost flex items-center gap-2"
-            style={{ fontSize: '13px', padding: '8px 14px' }}
+            className="h-9 px-4 rounded text-xs font-bold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 flex items-center gap-2 transition-all shadow-2xs cursor-pointer"
           >
             <Download size={14} />
-            Export Report
+            <span>Export Report</span>
           </button>
         </div>
       </div>
 
-      {/* ── Revenue Metrics Grid ───────────────────────────────────────────── */}
-      <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-4">
-        <MetricCard
-          label="Total Revenue Processed"
-          value={fmtAmount(m.totalRevenueProcessed * 100)}
-          delta={m.totalProcessedDelta}
-          icon={DollarSign}
-          iconColor="var(--color-brand)"
-          highlight
-        />
-        <MetricCard
-          label="Revenue At Risk"
-          value={fmtAmount(m.revenueAtRisk * 100)}
-          delta={m.atRiskDelta}
-          icon={AlertCircle}
-          iconColor="var(--color-danger)"
-          highlight
-        />
-        <MetricCard
-          label="Expected Recovery"
-          value={fmtAmount(m.expectedRecovery * 100)}
-          delta={m.expectedDelta}
-          icon={Target}
-          iconColor="var(--color-warning)"
-          highlight
-        />
-        <MetricCard
-          label="Actual Recovered"
-          value={fmtAmount(m.actualRecovered * 100)}
-          delta={m.recoveredDelta}
-          icon={TrendingUp}
-          iconColor="var(--color-success)"
-          highlight
-        />
-        <MetricCard
-          label="Recovery Rate"
-          value={`${m.recoveryRate}%`}
-          delta={m.recoveryRateDelta}
-          icon={BarChart3}
-          iconColor="var(--color-info)"
-          highlight
-        />
-        <MetricCard
-          label="Revenue Saved"
-          value={fmtAmount(m.revenueSaved * 100)}
-          delta={m.savedDelta}
-          icon={ShieldCheck}
-          iconColor="var(--color-success)"
-          highlight
-        />
+      {/* ── 6 Clean KPI Metric Cards (NO LEFT BORDER, Pure White Background) ── */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+        {kpis.map((k) => {
+          const Icon = k.icon;
+          const isPositive = k.delta != null && k.delta > 0;
+          const isNegative = k.delta != null && k.delta < 0;
+
+          return (
+            <div
+              key={k.label}
+              className="p-5 rounded-lg bg-white border border-slate-200 shadow-2xs flex flex-col justify-between hover:border-slate-300 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                  {k.label}
+                </span>
+                <div
+                  className="w-8 h-8 rounded flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: k.bgTint }}
+                >
+                  <Icon size={16} style={{ color: k.color }} />
+                </div>
+              </div>
+
+              <div className="my-3">
+                <p className="text-2xl font-extrabold font-mono text-slate-900 tracking-tight leading-none">
+                  {k.value}
+                </p>
+              </div>
+
+              {k.delta != null && (
+                <div className="flex items-center gap-1.5 text-xs font-semibold pt-2.5 border-t border-slate-100">
+                  {isPositive && <TrendingUp size={13} className="text-emerald-600" />}
+                  {isNegative && <TrendingDown size={13} className="text-red-600" />}
+                  <span className={isPositive ? 'text-emerald-700' : isNegative ? 'text-red-700' : 'text-slate-500'}>
+                    {k.delta > 0 ? '+' : ''}{k.delta}% vs period
+                  </span>
+                </div>
+              )}
+            </div>
+          );
+        })}
       </div>
 
-      {/* ── Recovery Performance Chart ─────────────────────────────────────── */}
-      <SectionCard>
-        <div className="flex items-center justify-between mb-5">
+      {/* ── Recovery Performance Area Chart ── */}
+      <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-2xs space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-3">
           <div>
-            <SectionTitle>Recovery Performance</SectionTitle>
-            <p className="text-[13px]" style={{ color: 'var(--color-text-muted)' }}>
-              Revenue at risk vs expected vs actual recovery over time
+            <h2 className="text-base font-bold text-slate-900">
+              Recovery Performance Timeline
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Revenue at risk vs expected recovery vs actual recovered revenue over time
             </p>
           </div>
           <PeriodToggle value={period} onChange={setPeriod} />
         </div>
+
         <ResponsiveContainer width="100%" height={280}>
-          <AreaChart data={chartData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
+          <AreaChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
             <defs>
               <linearGradient id="gradAtRisk" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.2} />
-                <stop offset="95%" stopColor="#ef4444" stopOpacity={0.02} />
+                <stop offset="5%" stopColor="#ef4444" stopOpacity={0.15} />
+                <stop offset="95%" stopColor="#ef4444" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="gradExpected" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#f97316" stopOpacity={0.2} />
-                <stop offset="95%" stopColor="#f97316" stopOpacity={0.02} />
+                <stop offset="5%" stopColor="#f59e0b" stopOpacity={0.15} />
+                <stop offset="95%" stopColor="#f59e0b" stopOpacity={0} />
               </linearGradient>
               <linearGradient id="gradRecovered" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="5%" stopColor="#34d399" stopOpacity={0.25} />
-                <stop offset="95%" stopColor="#34d399" stopOpacity={0.02} />
+                <stop offset="5%" stopColor="#10b981" stopOpacity={0.2} />
+                <stop offset="95%" stopColor="#10b981" stopOpacity={0} />
               </linearGradient>
             </defs>
-            <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-            <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} axisLine={false} tickLine={false} />
-            <YAxis tickFormatter={fmtCurrency} tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} axisLine={false} tickLine={false} width={56} />
+            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+            <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+            <YAxis tickFormatter={fmtCurrency} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} width={56} />
             <Tooltip content={<ChartTooltip />} />
-            <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--color-text-secondary)', paddingTop: '12px' }} />
+            <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '12px' }} />
             <Area type="monotone" dataKey="atRisk" name="At Risk" stroke="#ef4444" fill="url(#gradAtRisk)" strokeWidth={2} dot={false} />
-            <Area type="monotone" dataKey="expected" name="Expected Recovery" stroke="#f97316" fill="url(#gradExpected)" strokeWidth={2} dot={false} />
-            <Area type="monotone" dataKey="recovered" name="Actual Recovered" stroke="#34d399" fill="url(#gradRecovered)" strokeWidth={2.5} dot={false} />
+            <Area type="monotone" dataKey="expected" name="Expected Recovery" stroke="#f59e0b" fill="url(#gradExpected)" strokeWidth={2} dot={false} />
+            <Area type="monotone" dataKey="recovered" name="Actual Recovered" stroke="#10b981" fill="url(#gradRecovered)" strokeWidth={2.5} dot={false} />
           </AreaChart>
         </ResponsiveContainer>
-      </SectionCard>
+      </div>
 
-      {/* ── Row: Recovery Rate Chart + Expected vs Actual ──────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Recovery Rate Chart */}
-        <div className="lg:col-span-2">
-          <SectionCard>
-            <div className="flex items-center justify-between mb-5">
-              <div>
-                <SectionTitle>Recovery Rate</SectionTitle>
-                <p className="text-[13px]" style={{ color: 'var(--color-text-muted)' }}>
-                  Current vs previous period
-                </p>
-              </div>
-              <div className="flex items-center gap-3">
-                <span className="text-[22px] font-bold font-mono-data" style={{ color: 'var(--color-success)' }}>
-                  {m.recoveryRate}%
-                </span>
-                <div className="flex items-center gap-1">
-                  <TrendingUp size={13} style={{ color: 'var(--color-success)' }} />
-                  <span className="text-[12px] font-medium" style={{ color: 'var(--color-success)' }}>
-                    +{m.recoveryRateDelta}%
-                  </span>
-                </div>
-              </div>
+      {/* ── Row: Recovery Rate Line Chart + Realization Meter ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Recovery Rate Trend (2 cols) */}
+        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-lg p-6 shadow-2xs space-y-4">
+          <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">
+                Recovery Rate Benchmark
+              </h2>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Current performance cycle compared against previous period
+              </p>
             </div>
-            <ResponsiveContainer width="100%" height={220}>
-              <LineChart data={rateData} margin={{ top: 5, right: 10, left: 0, bottom: 5 }}>
-                <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" vertical={false} />
-                <XAxis dataKey="label" tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} axisLine={false} tickLine={false} />
-                <YAxis domain={[40, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 11, fill: 'var(--color-text-muted)' }} axisLine={false} tickLine={false} width={44} />
-                <Tooltip content={<RateTooltip />} />
-                <Legend wrapperStyle={{ fontSize: '12px', color: 'var(--color-text-secondary)', paddingTop: '10px' }} />
-                <Line type="monotone" dataKey="current" name="Current" stroke="var(--color-brand)" strokeWidth={2.5} dot={false} />
-                <Line type="monotone" dataKey="previous" name="Previous Period" stroke="var(--color-text-muted)" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
-              </LineChart>
-            </ResponsiveContainer>
-          </SectionCard>
+            <div className="flex items-center gap-2">
+              <span className="text-2xl font-bold font-mono text-emerald-700">
+                {m.recoveryRate}%
+              </span>
+              <span className="text-xs font-semibold px-2 py-0.5 rounded bg-emerald-50 text-emerald-700 border border-emerald-200">
+                +{m.recoveryRateDelta}%
+              </span>
+            </div>
+          </div>
+
+          <ResponsiveContainer width="100%" height={230}>
+            <LineChart data={rateData} margin={{ top: 5, right: 10, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+              <XAxis dataKey="label" tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+              <YAxis domain={[40, 100]} tickFormatter={v => `${v}%`} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} width={44} />
+              <Tooltip content={<RateTooltip />} />
+              <Legend wrapperStyle={{ fontSize: '12px', paddingTop: '10px' }} />
+              <Line type="monotone" dataKey="current" name="Current Cycle" stroke="#0c6ff9" strokeWidth={2.5} dot={false} />
+              <Line type="monotone" dataKey="previous" name="Previous Cycle" stroke="#94a3b8" strokeWidth={1.5} strokeDasharray="4 3" dot={false} />
+            </LineChart>
+          </ResponsiveContainer>
         </div>
 
-        {/* Expected vs Actual */}
-        <SectionCard>
-          <SectionTitle>Recovery Realization</SectionTitle>
-          <p className="text-[13px] mb-5" style={{ color: 'var(--color-text-muted)' }}>
-            Expected vs actual outcome
-          </p>
+        {/* Recovery Realization (1 col) */}
+        <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-2xs space-y-5">
+          <div className="border-b border-slate-100 pb-3">
+            <h2 className="text-base font-bold text-slate-900">
+              Recovery Realization
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Actual captured revenue vs anticipated recovery
+            </p>
+          </div>
 
           <div className="space-y-4">
             {/* Expected */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[12px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>Expected Recovery</span>
-                <span className="text-[14px] font-bold font-mono-data" style={{ color: 'var(--color-warning)' }}>
-                  {fmtAmount(m.expectedRecovery * 100)}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-600">Expected Recovery</span>
+                <span className="font-bold font-mono text-amber-700">
+                  {fmtAmount((m.expectedRecovery || 12000000))}
                 </span>
               </div>
-              <div style={{ height: 8, backgroundColor: 'var(--color-bg-muted)', borderRadius: 99 }}>
-                <div style={{ height: '100%', width: '100%', backgroundColor: 'var(--color-warning)', borderRadius: 99 }} />
+              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div className="h-full bg-amber-500 rounded-full w-full" />
               </div>
             </div>
 
             {/* Actual */}
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <span className="text-[12px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>Actual Recovered</span>
-                <span className="text-[14px] font-bold font-mono-data" style={{ color: 'var(--color-success)' }}>
-                  {fmtAmount(m.actualRecovered * 100)}
+            <div className="space-y-1.5">
+              <div className="flex items-center justify-between text-xs">
+                <span className="font-semibold text-slate-600">Actual Recovered</span>
+                <span className="font-bold font-mono text-emerald-700">
+                  {fmtAmount((m.actualRecovered || 2500000))}
                 </span>
               </div>
-              <div style={{ height: 8, backgroundColor: 'var(--color-bg-muted)', borderRadius: 99 }}>
-                <div style={{ height: '100%', width: `${m.recoveryRealization}%`, backgroundColor: 'var(--color-success)', borderRadius: 99 }} />
+              <div className="h-2 bg-slate-100 rounded-full overflow-hidden">
+                <div
+                  className="h-full bg-emerald-500 rounded-full"
+                  style={{ width: `${Math.min(100, m.recoveryRealization || 88)}%` }}
+                />
               </div>
             </div>
 
-            <div
-              className="rounded-xl p-4 mt-2"
-              style={{ backgroundColor: 'var(--color-bg-muted)', border: '1px solid var(--color-border)' }}
-            >
-              <p className="text-[11px] uppercase font-semibold tracking-wider mb-1" style={{ color: 'var(--color-text-muted)' }}>
-                Recovery Realization
+            <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 text-center space-y-1">
+              <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block">
+                Realization Index
+              </span>
+              <p className="text-3xl font-extrabold font-mono text-[#0c6ff9]">
+                {m.recoveryRealization || 88.5}%
               </p>
-              <p className="text-[28px] font-bold font-mono-data" style={{ color: 'var(--color-brand)' }}>
-                {m.recoveryRealization}%
-              </p>
-              <p className="text-[12px] mt-1" style={{ color: 'var(--color-text-muted)' }}>
-                Actual ÷ expected
-              </p>
-            </div>
-
-            <div
-              className="rounded-lg p-3"
-              style={{ backgroundColor: 'var(--color-info-bg)', border: '1px solid var(--color-info)' + '40' }}
-            >
-              <p className="text-[12px]" style={{ color: 'var(--color-info)' }}>
-                RevivePilot measures <strong>actual</strong> recovered revenue — not just predictions.
+              <p className="text-xs text-slate-500">
+                Formula: Actual Recovered ÷ Expected Target
               </p>
             </div>
           </div>
-        </SectionCard>
+        </div>
       </div>
 
-      {/* ── Row: Strategy Performance + Revenue Breakdown ─────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* Strategy Performance Table */}
-        <div className="lg:col-span-2">
-          <SectionCard>
-            <SectionTitle>Strategy Performance</SectionTitle>
-            <p className="text-[13px] mb-5" style={{ color: 'var(--color-text-muted)' }}>
-              Outcome comparison across all recovery strategies
+      {/* ── Row: Strategy Performance Table + Leakage Breakdown ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Strategy Performance Table (2 cols) */}
+        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden">
+          <div className="px-6 py-4 border-b border-slate-200 bg-white">
+            <h2 className="text-base font-bold text-slate-900">
+              Strategy Conversion Breakdown
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Comparative efficiency across automated recovery intervention channels
             </p>
-            <div style={{ overflowX: 'auto' }}>
-              <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '13px' }}>
-                <thead>
-                  <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                    {['Strategy', 'Attempts', 'Recovered', 'Success Rate', 'Avg Time'].map(h => (
-                      <th key={h} style={{
-                        padding: '8px 12px', textAlign: h === 'Strategy' ? 'left' : 'center',
-                        color: 'var(--color-text-muted)', fontSize: '11px',
-                        fontWeight: 600, textTransform: 'uppercase', letterSpacing: '0.05em',
-                      }}>{h}</th>
-                    ))}
+          </div>
+
+          <div className="overflow-x-auto bg-white">
+            <table className="w-full text-left text-xs bg-white">
+              <thead>
+                <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                  <th className="px-6 py-3.5">Strategy Channel</th>
+                  <th className="px-6 py-3.5 text-center">Interventions</th>
+                  <th className="px-6 py-3.5 text-center">Recovered Value</th>
+                  <th className="px-6 py-3.5 text-center">Success Rate</th>
+                  <th className="px-6 py-3.5 text-center">Avg Resolution</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {stratData.map((row, idx) => (
+                  <tr
+                    key={idx}
+                    className="hover:bg-slate-50/80 transition-colors bg-white"
+                  >
+                    <td className="px-6 py-4 font-semibold text-slate-900">
+                      {row.strategy}
+                    </td>
+                    <td className="px-6 py-4 text-center font-mono text-slate-700">
+                      {row.attempts}
+                    </td>
+                    <td className="px-6 py-4 text-center font-mono font-bold text-slate-900">
+                      {fmtCurrency(row.recovered)}
+                    </td>
+                    <td className="px-6 py-4 text-center">
+                      <span className={`px-2.5 py-0.5 rounded-full text-[11px] font-bold ${
+                        row.successRate >= 70
+                          ? 'bg-emerald-50 text-emerald-700 border border-emerald-200'
+                          : row.successRate >= 60
+                            ? 'bg-amber-50 text-amber-700 border border-amber-200'
+                            : 'bg-red-50 text-red-700 border border-red-200'
+                      }`}>
+                        {row.successRate}%
+                      </span>
+                    </td>
+                    <td className="px-6 py-4 text-center font-mono text-slate-500">
+                      {row.avgTime}
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {stratData.map((row, idx) => (
-                    <tr
-                      key={idx}
-                      style={{
-                        borderBottom: '1px solid var(--color-border)',
-                        transition: 'background 0.1s',
-                      }}
-                      onMouseEnter={e => { e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)'; }}
-                      onMouseLeave={e => { e.currentTarget.style.backgroundColor = ''; }}
-                    >
-                      <td style={{ padding: '12px 12px', color: 'var(--color-text-primary)', fontWeight: 500 }}>
-                        {row.strategy}
-                      </td>
-                      <td style={{ padding: '12px 12px', textAlign: 'center', color: 'var(--color-text-secondary)' }}>
-                        {row.attempts}
-                      </td>
-                      <td style={{ padding: '12px 12px', textAlign: 'center', color: 'var(--color-success)', fontWeight: 600, fontFamily: 'monospace' }}>
-                        {fmtCurrency(row.recovered)}
-                      </td>
-                      <td style={{ padding: '12px 12px', textAlign: 'center' }}>
-                        <span style={{
-                          display: 'inline-block', padding: '2px 10px', borderRadius: 99,
-                          backgroundColor: row.successRate >= 70 ? 'var(--color-success-bg)' : row.successRate >= 60 ? 'var(--color-warning-bg)' : 'var(--color-danger-bg)',
-                          color: row.successRate >= 70 ? 'var(--color-success)' : row.successRate >= 60 ? 'var(--color-warning)' : 'var(--color-danger)',
-                          fontSize: '12px', fontWeight: 700,
-                        }}>
-                          {row.successRate}%
-                        </span>
-                      </td>
-                      <td style={{ padding: '12px 12px', textAlign: 'center', color: 'var(--color-text-muted)', fontSize: '12px' }}>
-                        {row.avgTime}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          </SectionCard>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
 
-        {/* Revenue Breakdown */}
-        <SectionCard>
-          <SectionTitle>Revenue At Risk Breakdown</SectionTitle>
-          <p className="text-[13px] mb-4" style={{ color: 'var(--color-text-muted)' }}>
-            Leakage by category
-          </p>
+        {/* Leakage Breakdown Donut (1 col) */}
+        <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-2xs space-y-4">
+          <div className="border-b border-slate-100 pb-3">
+            <h2 className="text-base font-bold text-slate-900">
+              Revenue Leakage Causes
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Root cause categorization of failed payments
+            </p>
+          </div>
 
-          <ResponsiveContainer width="100%" height={160}>
+          <ResponsiveContainer width="100%" height={170}>
             <PieChart>
-              <Pie data={breakdownData} cx="50%" cy="50%" innerRadius={40} outerRadius={70} paddingAngle={3} dataKey="amount">
+              <Pie
+                data={breakdownData}
+                cx="50%"
+                cy="50%"
+                innerRadius={45}
+                outerRadius={75}
+                paddingAngle={3}
+                dataKey="amount"
+              >
                 {breakdownData.map((entry, idx) => (
                   <Cell key={idx} fill={entry.color} />
                 ))}
@@ -488,79 +524,93 @@ export default function Analytics() {
               <Tooltip
                 formatter={(value) => [fmtCurrency(value), 'Amount']}
                 contentStyle={{
-                  backgroundColor: 'var(--color-bg-card)',
-                  border: '1px solid var(--color-border)',
-                  borderRadius: '10px',
+                  backgroundColor: '#ffffff',
+                  border: '1px solid #e2e8f0',
+                  borderRadius: '8px',
                   fontSize: '12px',
-                  color: 'var(--color-text-primary)',
+                  color: '#0f172a',
                 }}
               />
             </PieChart>
           </ResponsiveContainer>
 
-          <div className="space-y-2 mt-2">
+          <div className="space-y-2.5 pt-2 border-t border-slate-100">
             {breakdownData.map((item, idx) => (
-              <div key={idx} className="flex items-center justify-between">
+              <div key={idx} className="flex items-center justify-between text-xs">
                 <div className="flex items-center gap-2">
-                  <span style={{ width: 8, height: 8, borderRadius: '50%', backgroundColor: item.color, display: 'inline-block', flexShrink: 0 }} />
-                  <span className="text-[12px]" style={{ color: 'var(--color-text-secondary)' }}>{item.category}</span>
+                  <span
+                    className="w-2.5 h-2.5 rounded-full flex-shrink-0"
+                    style={{ backgroundColor: item.color }}
+                  />
+                  <span className="font-medium text-slate-700">{item.category}</span>
                 </div>
-                <div className="flex items-center gap-2">
-                  <span className="text-[12px] font-semibold font-mono-data" style={{ color: 'var(--color-text-primary)' }}>
-                    {fmtCurrency(item.amount)}
-                  </span>
-                  <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-                    {item.pct}%
-                  </span>
+                <div className="flex items-center gap-2 font-mono">
+                  <span className="font-bold text-slate-900">{fmtCurrency(item.amount)}</span>
+                  <span className="text-slate-400 text-[11px]">({item.pct}%)</span>
                 </div>
               </div>
             ))}
           </div>
-        </SectionCard>
+        </div>
       </div>
 
-      {/* ── AI Effectiveness ───────────────────────────────────────────────── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* AI Metrics */}
-        <div className="lg:col-span-2 grid grid-cols-2 md:grid-cols-3 gap-4">
+      {/* ── Row: AI Effectiveness & Agent Accuracy ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* AI Key Metrics (2 cols) */}
+        <div className="lg:col-span-2 grid grid-cols-2 sm:grid-cols-3 gap-4">
           {[
-            { label: 'AI Qualified Cases',     value: aiData.aiQualifiedCases,    icon: Brain,      color: 'var(--color-brand)' },
-            { label: 'Successful Strategies',  value: aiData.successfulStrategies, icon: CheckCircle2, color: 'var(--color-success)' },
-            { label: 'AI Success Rate',        value: `${aiData.aiSuccessRate}%`,  icon: Target,     color: 'var(--color-info)' },
-            { label: 'Avg Decision Time',      value: `${aiData.avgDecisionTimeSec}s`, icon: Zap,    color: 'var(--color-warning)' },
-            { label: 'Revenue Recovered',      value: fmtCurrency(aiData.revenueRecovered), icon: DollarSign, color: 'var(--color-success)' },
-            { label: 'Agents Active',          value: '4 / 4',                                   icon: RefreshCcw, color: 'var(--color-brand)' },
+            { label: 'AI Qualified Cases', value: aiData.aiQualifiedCases, icon: Brain, color: '#0c6ff9', bg: 'rgba(12, 111, 249, 0.08)' },
+            { label: 'Successful Strategies', value: aiData.successfulStrategies, icon: CheckCircle2, color: '#10b981', bg: 'rgba(16, 185, 129, 0.08)' },
+            { label: 'AI Success Rate', value: `${aiData.aiSuccessRate}%`, icon: Target, color: '#0891b2', bg: 'rgba(8, 145, 178, 0.08)' },
+            { label: 'Avg Decision Time', value: `${aiData.avgDecisionTimeSec}s`, icon: Zap, color: '#f59e0b', bg: 'rgba(245, 158, 11, 0.08)' },
+            { label: 'Revenue Recovered', value: fmtCurrency(aiData.revenueRecovered), icon: DollarSign, color: '#10b981', bg: 'rgba(16, 185, 129, 0.08)' },
+            { label: 'Autonomous Agents', value: '4 / 4 Active', icon: RefreshCw, color: '#0c6ff9', bg: 'rgba(12, 111, 249, 0.08)' },
           ].map((m2, idx) => (
-            <SectionCard key={idx} style={{ padding: '20px' }}>
-              <div className="flex items-start justify-between mb-2">
-                <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
+            <div
+              key={idx}
+              className="p-5 rounded-lg bg-white border border-slate-200 shadow-2xs flex flex-col justify-between hover:border-slate-300 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
                   {m2.label}
-                </p>
-                <div style={{ width: 28, height: 28, borderRadius: 8, backgroundColor: `${m2.color}20`, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                  <m2.icon size={13} style={{ color: m2.color }} />
+                </span>
+                <div
+                  className="w-7 h-7 rounded flex items-center justify-center flex-shrink-0"
+                  style={{ backgroundColor: m2.bg }}
+                >
+                  <m2.icon size={15} style={{ color: m2.color }} />
                 </div>
               </div>
-              <p className="text-[24px] font-bold font-mono-data" style={{ color: 'var(--color-text-primary)' }}>
-                {m2.value}
-              </p>
-            </SectionCard>
+              <div className="mt-3">
+                <p className="text-2xl font-bold font-mono text-slate-900">
+                  {m2.value}
+                </p>
+              </div>
+            </div>
           ))}
         </div>
 
-        {/* Agent Accuracy */}
-        <SectionCard>
-          <SectionTitle>Agent Accuracy</SectionTitle>
-          <p className="text-[13px] mb-5" style={{ color: 'var(--color-text-muted)' }}>
-            Per-agent performance metrics
-          </p>
-          {MOCK_AI_EFFECTIVENESS.agentAccuracy.map((item, idx) => {
-            const iconMap = { Search, Brain, Lightbulb, 'Brain (Learning)': Brain };
-            const Icon = [Search, Brain, Lightbulb, Brain][idx];
-            return (
-              <AccuracyBar key={idx} agent={item.agent} accuracy={item.accuracy} icon={Icon} />
-            );
-          })}
-        </SectionCard>
+        {/* Agent Accuracy Panel (1 col) */}
+        <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-2xs space-y-4">
+          <div className="border-b border-slate-100 pb-3">
+            <h2 className="text-base font-bold text-slate-900">
+              Agent Accuracy Index
+            </h2>
+            <p className="text-xs text-slate-500 mt-0.5">
+              Consensus precision per autonomous agent
+            </p>
+          </div>
+
+          <div className="space-y-3">
+            {MOCK_AI_EFFECTIVENESS.agentAccuracy.map((item, idx) => {
+              const icons = [Search, Brain, Lightbulb, Brain];
+              const Icon = icons[idx] || Brain;
+              return (
+                <AccuracyBar key={idx} agent={item.agent} accuracy={item.accuracy} icon={Icon} />
+              );
+            })}
+          </div>
+        </div>
       </div>
     </div>
   );

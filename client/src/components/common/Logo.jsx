@@ -1,62 +1,57 @@
 /**
- * RevivePilot logo mark + wordmark.
- *
- * Props:
- *   size    — 'sm' | 'md' | 'lg'
- *   variant — 'full' (icon + wordmark) | 'icon' | 'wordmark'
+ * RevivePilot — Logo
+ * Razorpay-inspired angular glyph with clean Inter wordmark.
  */
-export default function Logo({ size = 'md', variant = 'full', className = '' }) {
+export default function Logo({ size = 'md', variant = 'full', className = '', light = false }) {
   const sizes = {
-    sm: { icon: 20, text: 'text-sm', sub: 'text-[9px]' },
-    md: { icon: 26, text: 'text-base', sub: 'text-[10px]' },
-    lg: { icon: 36, text: 'text-xl',  sub: 'text-xs' },
+    sm: { icon: 20, text: 'text-sm', gap: 'gap-2' },
+    md: { icon: 26, text: 'text-[15px]', gap: 'gap-2.5' },
+    lg: { icon: 32, text: 'text-lg', gap: 'gap-3' },
+    xl: { icon: 40, text: 'text-xl', gap: 'gap-3' },
   };
-  const s = sizes[size];
+  const s = sizes[size] || sizes.md;
 
-  const Icon = () => (
+  const Glyph = () => (
     <svg
       width={s.icon}
       height={s.icon}
       viewBox="0 0 32 32"
       fill="none"
+      xmlns="http://www.w3.org/2000/svg"
       aria-hidden="true"
     >
-      {/* Outer ring */}
-      <circle cx="16" cy="16" r="15" stroke="var(--color-brand)" strokeWidth="1.5" />
-      {/* Arrow pointing up-right (recovery / lift) */}
+      {/* Razorpay-style bold angular slash — primary */}
       <path
-        d="M10 22 L16 10 L22 16"
-        stroke="var(--color-brand)"
-        strokeWidth="2.2"
-        strokeLinecap="round"
-        strokeLinejoin="round"
+        d="M4 26L13 6H20L11 26H4Z"
+        fill="#0c6ff9"
       />
-      {/* Dot at peak */}
-      <circle cx="16" cy="10" r="2" fill="var(--color-brand)" />
+      {/* Secondary offset slash — recovery symbol */}
+      <path
+        d="M12 26L21 6H28L19 26H12Z"
+        fill="#0c6ff9"
+        opacity="0.35"
+      />
     </svg>
   );
 
-  if (variant === 'icon') return <Icon />;
+  const wordmark = (
+    <span
+      className={`font-extrabold tracking-tight leading-none select-none ${s.text} ${
+        light ? 'text-white' : 'text-slate-900'
+      }`}
+    >
+      Revive<span style={{ color: '#0c6ff9' }}>Pilot</span>
+    </span>
+  );
 
-  if (variant === 'wordmark') {
-    return (
-      <span className={`font-bold tracking-tight leading-none ${s.text} text-[var(--color-text-primary)] ${className}`}>
-        Revive<span style={{ color: 'var(--color-brand)' }}>Pilot</span>
-      </span>
-    );
-  }
+  if (variant === 'icon') return <Glyph />;
+
+  if (variant === 'wordmark') return wordmark;
 
   return (
-    <div className={`flex items-center gap-2.5 select-none ${className}`}>
-      <Icon />
-      <div className="flex flex-col leading-none">
-        <span className={`font-bold tracking-tight ${s.text} text-[var(--color-text-primary)]`}>
-          Revive<span style={{ color: 'var(--color-brand)' }}>Pilot</span>
-        </span>
-        <span className={`${s.sub} text-[var(--color-text-muted)] tracking-wider uppercase font-medium mt-0.5`}>
-          AI Revenue Recovery
-        </span>
-      </div>
+    <div className={`flex items-center ${s.gap} select-none ${className}`}>
+      <Glyph />
+      {wordmark}
     </div>
   );
 }

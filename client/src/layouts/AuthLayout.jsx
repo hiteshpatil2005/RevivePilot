@@ -1,28 +1,36 @@
 import { Navigate, Outlet } from 'react-router-dom';
+import { ShieldCheck, Lock, CheckCircle2 } from 'lucide-react';
 import Logo from '../components/common/Logo';
-import ThemeToggle from '../components/common/ThemeToggle';
 import { useAuth } from '../context/AuthContext';
 import Spinner from '../components/common/Spinner';
 
-/**
- * AuthLayout
- *
- * Two-column layout on desktop:
- *   Left  — brand panel with tagline and stats
- *   Right — auth form (Login / Register via Outlet)
- *
- * Collapses to single column on mobile.
- * Already-authenticated users are redirected to /dashboard.
- */
+const FEATURES = [
+  {
+    title: 'Instant Gateway Bottleneck Bypass',
+    desc: 'Routes failed bank transactions to active fallback rails instantly.',
+  },
+  {
+    title: 'Bounded Multi-Agent Governance',
+    desc: 'Strict merchant policies enforce retry caps, cooldowns, and amount limits.',
+  },
+  {
+    title: 'Real-Time Razorpay Webhook Ingestion',
+    desc: 'Sub-second event detection for payment.failed and payment.captured.',
+  },
+];
+
+const STATS = [
+  { value: '74.9%', label: 'Recovery Rate' },
+  { value: '<8s', label: 'AI Decision', color: '#00d2d3' },
+  { value: '₹42.8L', label: 'Saved Today', color: '#34d399' },
+];
+
 export default function AuthLayout() {
   const { isAuthenticated, loading } = useAuth();
 
   if (loading) {
     return (
-      <div
-        className="flex items-center justify-center min-h-screen"
-        style={{ backgroundColor: 'var(--color-bg-page)' }}
-      >
+      <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', minHeight: '100vh', backgroundColor: '#072654' }}>
         <Spinner size={28} />
       </div>
     );
@@ -33,94 +41,99 @@ export default function AuthLayout() {
   }
 
   return (
-    <div
-      className="min-h-screen flex"
-      style={{ backgroundColor: 'var(--color-bg-page)' }}
-    >
-      {/* ── Brand Panel (left, hidden on mobile) ── */}
-      <div
-        className="hidden lg:flex flex-col justify-between w-[480px] flex-shrink-0 p-12"
-        style={{
-          backgroundColor: 'var(--color-bg-card)',
-          borderRight: '1px solid var(--color-border)',
-        }}
-      >
-        {/* Top: Logo */}
-        <Logo variant="full" size="lg" />
+    <div style={{ minHeight: '100vh', display: 'flex', fontFamily: "'Inter', system-ui, sans-serif", backgroundColor: '#f4f5f7' }}>
 
-        {/* Middle: Tagline */}
-        <div>
-          <p
-            className="text-[11px] font-semibold uppercase tracking-widest mb-4"
-            style={{ color: 'var(--color-brand)' }}
-          >
-            Track 03 — AI Revenue Recovery
-          </p>
-          <h2
-            className="text-4xl font-bold leading-tight mb-4"
-            style={{ color: 'var(--color-text-primary)' }}
-          >
-            Detect.<br />Decide.<br />Recover.
+      {/* ── Left Brand Panel ── */}
+      <div style={{
+        width: '480px',
+        flexShrink: 0,
+        backgroundColor: '#072654',
+        display: 'flex',
+        flexDirection: 'column',
+        justifyContent: 'space-between',
+        padding: '48px',
+        position: 'relative',
+        overflow: 'hidden',
+      }} className="hidden lg:flex">
+
+        {/* Top logo */}
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <Logo variant="full" size="lg" light />
+          <div style={{
+            marginTop: '16px',
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '8px',
+            padding: '5px 12px',
+            borderRadius: '100px',
+            border: '1px solid rgba(12,111,249,0.4)',
+            backgroundColor: 'rgba(12,111,249,0.15)',
+          }}>
+            <span style={{ width: '6px', height: '6px', borderRadius: '50%', backgroundColor: '#00d2d3', display: 'inline-block' }} className="animate-pulse-live" />
+            <span style={{ fontSize: '11px', fontWeight: '600', color: '#93c5fd', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+              Razorpay Buildathon · Track 03
+            </span>
+          </div>
+        </div>
+
+        {/* Middle pitch */}
+        <div style={{ position: 'relative', zIndex: 1 }}>
+          <h2 style={{
+            fontSize: '28px',
+            fontWeight: '800',
+            lineHeight: '1.3',
+            color: '#ffffff',
+            letterSpacing: '-0.02em',
+            marginBottom: '16px',
+          }}>
+            Stop losing revenue to transient payment failures.
           </h2>
-          <p
-            className="text-[15px] leading-relaxed"
-            style={{ color: 'var(--color-text-secondary)' }}
-          >
-            RevivePilot autonomously identifies revenue at risk, selects the optimal recovery strategy, and executes bounded AI actions — all within your merchant policy guardrails.
+          <p style={{ fontSize: '13px', color: '#94a3b8', lineHeight: '1.7', marginBottom: '28px' }}>
+            RevivePilot monitors gateway drops in real-time, diagnoses root causes using multi-agent AI,
+            and autonomously issues 1-click alternative recovery rails within your bounded merchant policies.
           </p>
 
-          {/* Feature points */}
-          <div className="mt-10 space-y-4">
-            {[
-              { label: 'Autonomous Agents', desc: 'AI agents that act, not just report' },
-              { label: 'Policy-Controlled', desc: 'Every action stays within your rules' },
-              { label: 'Real-Time Recovery', desc: 'Sub-minute failure detection & response' },
-            ].map(f => (
-              <div key={f.label} className="flex items-start gap-3">
-                <div
-                  className="mt-0.5 w-1.5 h-1.5 rounded-full flex-shrink-0"
-                  style={{ backgroundColor: 'var(--color-brand)', marginTop: '6px' }}
-                />
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '16px' }}>
+            {FEATURES.map((f, i) => (
+              <div key={i} style={{ display: 'flex', alignItems: 'flex-start', gap: '12px' }}>
+                <div style={{
+                  width: '20px',
+                  height: '20px',
+                  borderRadius: '50%',
+                  backgroundColor: 'rgba(12,111,249,0.2)',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  flexShrink: 0,
+                  marginTop: '2px',
+                }}>
+                  <CheckCircle2 size={12} color="#0c6ff9" />
+                </div>
                 <div>
-                  <p
-                    className="text-[13px] font-semibold"
-                    style={{ color: 'var(--color-text-primary)' }}
-                  >
-                    {f.label}
-                  </p>
-                  <p
-                    className="text-[12px]"
-                    style={{ color: 'var(--color-text-muted)' }}
-                  >
-                    {f.desc}
-                  </p>
+                  <p style={{ fontSize: '13px', fontWeight: '600', color: '#ffffff', marginBottom: '2px' }}>{f.title}</p>
+                  <p style={{ fontSize: '12px', color: '#94a3b8' }}>{f.desc}</p>
                 </div>
               </div>
             ))}
           </div>
         </div>
 
-        {/* Bottom: Stats strip */}
-        <div
-          className="flex gap-8 pt-8"
-          style={{ borderTop: '1px solid var(--color-border)' }}
-        >
-          {[
-            { value: '69.5%', label: 'Avg. Recovery Rate' },
-            { value: '<8m',   label: 'Avg. Response Time' },
-            { value: '4',     label: 'AI Agents' },
-          ].map(s => (
-            <div key={s.label}>
-              <p
-                className="text-2xl font-bold font-mono-data"
-                style={{ color: 'var(--color-brand)' }}
-              >
+        {/* Bottom stats */}
+        <div style={{
+          position: 'relative',
+          zIndex: 1,
+          paddingTop: '24px',
+          borderTop: '1px solid rgba(255,255,255,0.08)',
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '16px',
+        }}>
+          {STATS.map((s, i) => (
+            <div key={i}>
+              <p style={{ fontSize: '22px', fontWeight: '700', fontFamily: 'monospace', color: s.color || '#ffffff', letterSpacing: '-0.02em' }}>
                 {s.value}
               </p>
-              <p
-                className="text-[11px] mt-0.5"
-                style={{ color: 'var(--color-text-muted)' }}
-              >
+              <p style={{ fontSize: '11px', fontWeight: '600', color: '#64748b', textTransform: 'uppercase', letterSpacing: '0.05em', marginTop: '2px' }}>
                 {s.label}
               </p>
             </div>
@@ -128,35 +141,51 @@ export default function AuthLayout() {
         </div>
       </div>
 
-      {/* ── Auth Content Panel (right) ── */}
-      <div className="flex-1 flex flex-col">
-        {/* Top bar with theme toggle */}
-        <div
-          className="flex items-center justify-between px-6 py-4 lg:justify-end"
-          style={{ borderBottom: '1px solid var(--color-border)' }}
-        >
-          {/* Logo visible only on mobile */}
+      {/* ── Right Auth Panel ── */}
+      <div style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        {/* Minimal top bar — mobile logo only */}
+        <div style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '16px 32px',
+          borderBottom: '1px solid #e8eaed',
+          backgroundColor: '#ffffff',
+        }}>
           <div className="lg:hidden">
             <Logo variant="full" size="sm" />
           </div>
-          <ThemeToggle />
+          <div className="hidden lg:block" /> {/* spacer */}
         </div>
 
         {/* Form area */}
-        <div className="flex-1 flex items-center justify-center p-6">
-          <div className="w-full max-w-md animate-fade-in">
+        <div style={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '40px 24px' }}>
+          <div style={{ width: '100%', maxWidth: '420px' }} className="animate-fade-in">
             <Outlet />
           </div>
         </div>
 
         {/* Footer */}
-        <div
-          className="px-6 py-4 text-center"
-          style={{ borderTop: '1px solid var(--color-border)' }}
-        >
-          <p className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-            © 2025 RevivePilot · Built for Razorpay Buildathon Track 03
-          </p>
+        <div style={{
+          padding: '16px 32px',
+          borderTop: '1px solid #e8eaed',
+          backgroundColor: '#ffffff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          gap: '12px',
+        }}>
+          <p style={{ fontSize: '12px', color: '#9299a7' }}>© 2026 RevivePilot · Razorpay Buildathon Edition</p>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '16px' }}>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#9299a7' }}>
+              <ShieldCheck size={12} style={{ color: '#059669' }} />
+              RBI Tokenized
+            </span>
+            <span style={{ display: 'flex', alignItems: 'center', gap: '5px', fontSize: '11px', color: '#9299a7' }}>
+              <Lock size={12} style={{ color: '#0c6ff9' }} />
+              256-Bit SSL
+            </span>
+          </div>
         </div>
       </div>
     </div>

@@ -70,7 +70,7 @@ export default function NotificationPanel({ open, onClose }) {
         width: '400px',
         backgroundColor: 'var(--color-bg-card)',
         border: '1px solid var(--color-border)',
-        borderRadius: '14px',
+        borderRadius: '8px',
         boxShadow: 'var(--shadow-modal)',
         maxHeight: '520px',
         display: 'flex',

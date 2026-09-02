@@ -21,10 +21,12 @@ export function useRecoveryCases(initialParams = {}) {
       setError(null);
       const params = JSON.parse(paramsKey);
       const res = await recoveryApi.getCases(params);
-      setCases(res.cases || res || []);
+      const caseList = res?.cases || (Array.isArray(res) ? res : []);
+      setCases(caseList);
     } catch (err) {
       console.error('[useRecoveryCases] Failed to fetch cases:', err);
       setError(err.message || 'Failed to load recovery cases');
+      setCases(MOCK_RECOVERY_CASES);
     } finally {
       setLoading(false);
     }

@@ -29,6 +29,7 @@ The project has transitioned from mock UI concepts into a **genuinely operationa
 │ Backend Phase 3                │ Events, Simulator, WS    │ [x] COMPLETED  │
 │ Backend Phase 4                │ Multi-Agent AI Pipeline  │ [x] COMPLETED  │
 │ Backend Phase 5                │ Razorpay Gateway/Webhook │ [x] COMPLETED  │
+│ Client-User Portal (:5174)     │ Customer Store & RZP Pay │ [x] COMPLETED  │
 └────────────────────────────────┴──────────────────────────┴────────────────┘
 ```
 

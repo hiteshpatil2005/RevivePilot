@@ -16,27 +16,28 @@ function PasswordStrength({ password }) {
 
   const score = password ? calc(password) : 0;
   const labels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
-  const colors = ['', 'var(--color-danger)', 'var(--color-warning)', 'var(--color-info)', 'var(--color-success)'];
+  const colors = ['', '#dc2626', '#d97706', '#0891b2', '#059669'];
 
   if (!password) return null;
 
   return (
-    <div className="mt-2">
-      <div className="flex gap-1 mb-1">
+    <div style={{ marginTop: '6px' }}>
+      <div style={{ display: 'flex', gap: '4px', marginBottom: '3px' }}>
         {[1, 2, 3, 4].map(i => (
           <div
             key={i}
-            className="h-1 flex-1 rounded-full transition-all duration-300"
             style={{
-              backgroundColor: i <= score ? colors[score] : 'var(--color-border)',
+              height: '3px',
+              flex: 1,
+              borderRadius: '2px',
+              backgroundColor: i <= score ? colors[score] : '#e8eaed',
+              transition: 'background-color 0.2s',
             }}
           />
         ))}
       </div>
       {score > 0 && (
-        <p className="text-[11px]" style={{ color: colors[score] }}>
-          {labels[score]}
-        </p>
+        <p style={{ fontSize: '11px', color: colors[score], fontWeight: '500' }}>{labels[score]}</p>
       )}
     </div>
   );
@@ -97,86 +98,134 @@ export default function Register() {
     }
   };
 
-  const Field = ({ id, name, label, type = 'text', placeholder, autoComplete, required, children }) => (
-    <div>
-      <label
-        htmlFor={id}
-        className="block text-[13px] font-medium mb-1.5"
-        style={{ color: 'var(--color-text-primary)' }}
-      >
-        {label}
-        {!required && (
-          <span className="ml-1 text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-            (optional)
-          </span>
-        )}
-      </label>
-      {children || (
-        <input
-          id={id}
-          name={name}
-          type={type}
-          autoComplete={autoComplete}
-          placeholder={placeholder}
-          value={form[name]}
-          onChange={handleChange}
-          className={`input-base ${errors[name] ? 'border-[var(--color-danger)]' : ''}`}
-          aria-required={required}
-          aria-describedby={errors[name] ? `${id}-error` : undefined}
-          disabled={loading}
-        />
-      )}
-      {errors[name] && (
-        <p
-          id={`${id}-error`}
-          className="mt-1 text-[12px]"
-          style={{ color: 'var(--color-danger)' }}
-          role="alert"
-        >
-          {errors[name]}
-        </p>
-      )}
-    </div>
-  );
+  const inputStyle = (hasError) => ({
+    width: '100%',
+    height: '40px',
+    padding: '0 12px',
+    fontSize: '14px',
+    border: `1px solid ${hasError ? '#dc2626' : '#d0d4db'}`,
+    borderRadius: '6px',
+    backgroundColor: '#ffffff',
+    color: '#0f172a',
+    outline: 'none',
+    fontFamily: 'inherit',
+    transition: 'border-color 0.15s, box-shadow 0.15s',
+  });
+
+  const labelStyle = {
+    display: 'block',
+    fontSize: '13px',
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: '5px',
+  };
+
+  const fieldWrap = { marginBottom: '14px' };
+
+  const handleFocus = e => {
+    e.target.style.borderColor = '#0c6ff9';
+    e.target.style.boxShadow = '0 0 0 3px rgba(12,111,249,0.10)';
+  };
+  const handleBlur = e => {
+    if (!e.target.value || !e.target.classList.contains('has-error')) {
+      e.target.style.borderColor = '#d0d4db';
+    }
+    e.target.style.boxShadow = 'none';
+  };
 
   return (
     <div>
       {/* Header */}
-      <div className="mb-8">
-        <h2
-          className="text-2xl font-bold mb-1.5"
-          style={{ color: 'var(--color-text-primary)' }}
-        >
-          Create merchant account
-        </h2>
-        <p className="text-[14px]" style={{ color: 'var(--color-text-secondary)' }}>
-          Join RevivePilot and start recovering revenue
+      <div style={{ marginBottom: '24px' }}>
+        <h1 style={{ fontSize: '22px', fontWeight: '700', color: '#0f172a', letterSpacing: '-0.02em', marginBottom: '6px' }}>
+          Create your account
+        </h1>
+        <p style={{ fontSize: '14px', color: '#6b7280' }}>
+          Join RevivePilot and start recovering revenue.
         </p>
       </div>
 
-      <form onSubmit={handleSubmit} noValidate className="space-y-4">
+      <form onSubmit={handleSubmit} noValidate>
         {/* Business Name */}
-        <Field id="reg-business" name="businessName" label="Business Name" placeholder="Acme Payments Ltd." required />
+        <div style={fieldWrap}>
+          <label htmlFor="reg-business" style={labelStyle}>Business Name</label>
+          <input
+            id="reg-business"
+            name="businessName"
+            type="text"
+            placeholder="Acme Payments Ltd."
+            value={form.businessName}
+            onChange={handleChange}
+            disabled={loading}
+            style={inputStyle(errors.businessName)}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+          />
+          {errors.businessName && <p style={{ fontSize: '12px', color: '#dc2626', marginTop: '4px' }} role="alert">{errors.businessName}</p>}
+        </div>
 
         {/* Full Name */}
-        <Field id="reg-fullname" name="fullName" label="Full Name" autoComplete="name" placeholder="Priya Mehta" required />
+        <div style={fieldWrap}>
+          <label htmlFor="reg-fullname" style={labelStyle}>Full Name</label>
+          <input
+            id="reg-fullname"
+            name="fullName"
+            type="text"
+            autoComplete="name"
+            placeholder="Priya Mehta"
+            value={form.fullName}
+            onChange={handleChange}
+            disabled={loading}
+            style={inputStyle(errors.fullName)}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+          />
+          {errors.fullName && <p style={{ fontSize: '12px', color: '#dc2626', marginTop: '4px' }} role="alert">{errors.fullName}</p>}
+        </div>
 
         {/* Email */}
-        <Field id="reg-email" name="email" label="Business Email" type="email" autoComplete="email" placeholder="you@company.com" required />
+        <div style={fieldWrap}>
+          <label htmlFor="reg-email" style={labelStyle}>Business Email</label>
+          <input
+            id="reg-email"
+            name="email"
+            type="email"
+            autoComplete="email"
+            placeholder="you@company.com"
+            value={form.email}
+            onChange={handleChange}
+            disabled={loading}
+            style={inputStyle(errors.email)}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+          />
+          {errors.email && <p style={{ fontSize: '12px', color: '#dc2626', marginTop: '4px' }} role="alert">{errors.email}</p>}
+        </div>
 
-        {/* Phone */}
-        <Field id="reg-phone" name="phone" label="Phone Number" type="tel" autoComplete="tel" placeholder="+91 98765 43210" required={false} />
+        {/* Phone (optional) */}
+        <div style={fieldWrap}>
+          <label htmlFor="reg-phone" style={labelStyle}>
+            Phone Number <span style={{ fontSize: '11px', color: '#9299a7' }}>(optional)</span>
+          </label>
+          <input
+            id="reg-phone"
+            name="phone"
+            type="tel"
+            autoComplete="tel"
+            placeholder="+91 98765 43210"
+            value={form.phone}
+            onChange={handleChange}
+            disabled={loading}
+            style={inputStyle(false)}
+            onFocus={handleFocus}
+            onBlur={handleBlur}
+          />
+        </div>
 
         {/* Password */}
-        <div>
-          <label
-            htmlFor="reg-password"
-            className="block text-[13px] font-medium mb-1.5"
-            style={{ color: 'var(--color-text-primary)' }}
-          >
-            Password
-          </label>
-          <div className="relative">
+        <div style={fieldWrap}>
+          <label htmlFor="reg-password" style={labelStyle}>Password</label>
+          <div style={{ position: 'relative' }}>
             <input
               id="reg-password"
               name="password"
@@ -185,38 +234,28 @@ export default function Register() {
               placeholder="Min. 6 characters"
               value={form.password}
               onChange={handleChange}
-              className={`input-base pr-10 ${errors.password ? 'border-[var(--color-danger)]' : ''}`}
-              aria-required="true"
               disabled={loading}
+              style={{ ...inputStyle(errors.password), paddingRight: '40px' }}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
             />
             <button
               type="button"
               onClick={() => setShowPassword(v => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer"
-              style={{ color: 'var(--color-text-muted)' }}
+              style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
               aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
-              {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+              {showPassword ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>
           <PasswordStrength password={form.password} />
-          {errors.password && (
-            <p className="mt-1 text-[12px]" style={{ color: 'var(--color-danger)' }} role="alert">
-              {errors.password}
-            </p>
-          )}
+          {errors.password && <p style={{ fontSize: '12px', color: '#dc2626', marginTop: '4px' }} role="alert">{errors.password}</p>}
         </div>
 
         {/* Confirm Password */}
-        <div>
-          <label
-            htmlFor="reg-confirm"
-            className="block text-[13px] font-medium mb-1.5"
-            style={{ color: 'var(--color-text-primary)' }}
-          >
-            Confirm Password
-          </label>
-          <div className="relative">
+        <div style={fieldWrap}>
+          <label htmlFor="reg-confirm" style={labelStyle}>Confirm Password</label>
+          <div style={{ position: 'relative' }}>
             <input
               id="reg-confirm"
               name="confirmPassword"
@@ -225,70 +264,71 @@ export default function Register() {
               placeholder="••••••••"
               value={form.confirmPassword}
               onChange={handleChange}
-              className={`input-base pr-10 ${errors.confirmPassword ? 'border-[var(--color-danger)]' : ''}`}
-              aria-required="true"
               disabled={loading}
+              style={{ ...inputStyle(errors.confirmPassword), paddingRight: '40px' }}
+              onFocus={handleFocus}
+              onBlur={handleBlur}
             />
             <button
               type="button"
               onClick={() => setShowConfirm(v => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer"
-              style={{ color: 'var(--color-text-muted)' }}
+              style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
               aria-label={showConfirm ? 'Hide confirm password' : 'Show confirm password'}
             >
-              {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+              {showConfirm ? <EyeOff size={15} /> : <Eye size={15} />}
             </button>
           </div>
-          {errors.confirmPassword && (
-            <p className="mt-1 text-[12px]" style={{ color: 'var(--color-danger)' }} role="alert">
-              {errors.confirmPassword}
-            </p>
-          )}
+          {errors.confirmPassword && <p style={{ fontSize: '12px', color: '#dc2626', marginTop: '4px' }} role="alert">{errors.confirmPassword}</p>}
         </div>
 
         {/* Submit */}
         <button
           type="submit"
-          className="btn-primary mt-2"
           disabled={loading}
+          style={{
+            width: '100%',
+            height: '42px',
+            borderRadius: '6px',
+            backgroundColor: loading ? '#7ab3fc' : '#0c6ff9',
+            color: '#ffffff',
+            fontSize: '14px',
+            fontWeight: '600',
+            border: 'none',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            fontFamily: 'inherit',
+            marginTop: '8px',
+            transition: 'background-color 0.15s',
+          }}
+          onMouseEnter={e => { if (!loading) e.currentTarget.style.backgroundColor = '#0057d4'; }}
+          onMouseLeave={e => { if (!loading) e.currentTarget.style.backgroundColor = '#0c6ff9'; }}
           aria-busy={loading}
         >
           {loading ? (
-            <>
-              <Spinner size={15} />
-              <span>Creating account…</span>
-            </>
+            <><Spinner size={15} /><span>Creating account...</span></>
           ) : (
-            <>
-              <span>Create Merchant Account</span>
-              <ArrowRight size={15} />
-            </>
+            <><span>Create Account</span><ArrowRight size={15} /></>
           )}
         </button>
 
-        <p
-          className="text-[11px] text-center leading-relaxed"
-          style={{ color: 'var(--color-text-muted)' }}
-        >
+        <p style={{ fontSize: '11px', color: '#9299a7', textAlign: 'center', marginTop: '12px', lineHeight: '1.5' }}>
           By creating an account, you agree to our Terms of Service and Privacy Policy.
         </p>
       </form>
 
       {/* Divider */}
-      <div className="flex items-center gap-3 my-6">
-        <hr className="divider flex-1" />
-        <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>or</span>
-        <hr className="divider flex-1" />
+      <div style={{ display: 'flex', alignItems: 'center', gap: '12px', margin: '20px 0' }}>
+        <div style={{ flex: 1, height: '1px', backgroundColor: '#e8eaed' }} />
+        <span style={{ fontSize: '11px', color: '#9299a7' }}>or</span>
+        <div style={{ flex: 1, height: '1px', backgroundColor: '#e8eaed' }} />
       </div>
 
-      {/* Login link */}
-      <p className="text-center text-[13px]" style={{ color: 'var(--color-text-secondary)' }}>
+      <p style={{ textAlign: 'center', fontSize: '13px', color: '#6b7280' }}>
         Already have an account?{' '}
-        <Link
-          to="/login"
-          className="font-semibold"
-          style={{ color: 'var(--color-brand)' }}
-        >
+        <Link to="/login" style={{ color: '#0c6ff9', fontWeight: '600', textDecoration: 'none' }}>
           Sign in
         </Link>
       </p>

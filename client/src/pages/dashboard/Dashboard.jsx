@@ -1,13 +1,12 @@
 import { useNavigate } from 'react-router-dom';
 import {
   TrendingDown, TrendingUp, RefreshCcw, Activity,
-  ArrowUpRight, AlertTriangle, ExternalLink, PlusCircle
+  ArrowUpRight, AlertTriangle, ExternalLink, ArrowRight, ShieldCheck, Zap
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useRecoveryCases } from '../../hooks/useRecoveryCases';
 import { MOCK_HIGH_PRIORITY, MOCK_CUSTOMERS } from '../../data/mockData';
-import MetricCard from '../../components/common/MetricCard';
 import StatusBadge from '../../components/common/StatusBadge';
 import RiskBadge from '../../components/common/RiskBadge';
 import SkeletonLoader from '../../components/common/SkeletonLoader';
@@ -15,13 +14,6 @@ import RevenueRecoveryChart from '../../components/dashboard/RevenueRecoveryChar
 import RecoveryFunnel from '../../components/dashboard/RecoveryFunnel';
 import LiveRecoveryActivity from '../../components/dashboard/LiveRecoveryActivity';
 import LiveIndicator from '../../components/common/LiveIndicator';
-
-function getGreeting() {
-  const h = new Date().getHours();
-  if (h < 12) return 'Good morning';
-  if (h < 17) return 'Good afternoon';
-  return 'Good evening';
-}
 
 const LAKHS = (n) => {
   if (n === undefined || n === null) return '—';
@@ -46,202 +38,279 @@ export default function Dashboard() {
           delta: metrics.revenueAtRiskDelta || 12.4,
           deltaLabel: 'vs previous period',
           icon: TrendingDown,
-          iconColor: 'var(--color-danger)',
+          color: '#ef4444',
+          bgTint: 'rgba(239, 68, 68, 0.08)',
         },
         {
           label: 'Expected Recovery',
           value: LAKHS(metrics.expectedRecovery),
-          sub: `${metrics.recoveryRate || 74.9}% recovery rate`,
+          sub: `${metrics.recoveryRate || 74.9}% recovery probability`,
           delta: metrics.recoveryRateDelta || 4.1,
           deltaLabel: 'rate improvement',
           icon: TrendingUp,
-          iconColor: 'var(--color-brand)',
+          color: '#0c6ff9',
+          bgTint: 'rgba(12, 111, 249, 0.08)',
         },
         {
           label: 'Recovered Revenue',
           value: LAKHS(metrics.recoveredRevenue),
-          sub: 'This period',
+          sub: 'Successfully captured to account',
           delta: metrics.recoveredDelta || 18.7,
           deltaLabel: 'vs previous period',
           icon: TrendingUp,
-          iconColor: 'var(--color-success)',
+          color: '#10b981',
+          bgTint: 'rgba(16, 185, 129, 0.08)',
         },
         {
-          label: 'Active Cases',
+          label: 'Active Recovery Cases',
           value: metrics.activeCases,
-          sub: `${metrics.highPriorityCases || 6} high priority`,
+          sub: `${metrics.highPriorityCases || 6} critical in queue`,
           icon: Activity,
-          iconColor: 'var(--color-warning)',
+          color: '#f59e0b',
+          bgTint: 'rgba(245, 158, 11, 0.08)',
         },
         {
-          label: 'Avg Recovery Time',
+          label: 'Avg Recovery Speed',
           value: metrics.avgRecoveryTime || '7m 32s',
-          sub: 'Detection to resolution',
+          sub: 'Detection to settlement',
           icon: RefreshCcw,
-          iconColor: 'var(--color-info)',
+          color: '#0891b2',
+          bgTint: 'rgba(8, 145, 178, 0.08)',
         },
       ]
     : [];
 
   return (
-    <div className="p-6 max-w-screen-xl mx-auto space-y-6 animate-fade-in">
-      {/* ── Page Header ── */}
-      <div className="flex items-start justify-between gap-4 flex-wrap">
-        <div>
-          <h2 className="text-[20px] font-bold" style={{ color: 'var(--color-text-primary)' }}>
-            {getGreeting()}, {user?.fullName?.split(' ')[0] ?? 'Merchant'} 👋
-          </h2>
-          <p className="text-[13px] mt-1" style={{ color: 'var(--color-text-secondary)' }}>
-            {user?.businessName} · {new Date().toLocaleDateString('en-IN', {
-              weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
-            })}
+    <div className="w-full max-w-[1720px] px-6 lg:px-10 py-7 space-y-7 mx-auto text-slate-900 font-sans">
+      {/* ── Enterprise Header (High contrast, 100% visible, professional fintech branding) ── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-200">
+        <div className="space-y-1">
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              Revenue Recovery Dashboard
+            </h1>
+            <span className="px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-blue-50 text-[#0c6ff9] border border-blue-200">
+              Enterprise Cockpit
+            </span>
+          </div>
+          <p className="text-sm text-slate-600">
+            Real-time autonomous monitoring and payment gateway recovery telemetry
+          </p>
+          <p className="text-xs text-slate-500 font-medium">
+            Tenant: <strong className="text-slate-800">{user?.businessName || 'Acme Corporation'}</strong> · Region: <strong className="text-slate-800">ap-south-1 (Mumbai)</strong> · Node: <strong className="text-slate-800">Active</strong>
           </p>
         </div>
-        <div className="flex items-center gap-3">
-          <button
-            onClick={() => navigate('/test-payment')}
-            className="btn-primary text-[13px] py-1.5 px-3 flex items-center gap-1.5 shadow-sm"
+
+        {/* Clean, horizontally-aligned action toolbar */}
+        <div className="flex items-center gap-3 flex-wrap">
+          {/* Customer Store Direct Link */}
+          <a
+            href="http://localhost:5174"
+            target="_blank"
+            rel="noreferrer"
+            className="h-9 px-4 rounded text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-[#0c6ff9] hover:border-[#0c6ff9] flex items-center gap-2 transition-all shadow-2xs"
+            title="Open customer checkout simulation portal on port 5174"
           >
-            <PlusCircle size={15} />
-            <span>Test Payment</span>
+            <ExternalLink size={14} className="text-[#0c6ff9]" />
+            <span>Customer Store (:5174)</span>
+          </a>
+
+          {/* Primary Recovery Center Shortcut */}
+          <button
+            type="button"
+            onClick={() => navigate('/recovery')}
+            className="h-9 px-4 rounded text-xs font-bold bg-[#0c6ff9] hover:bg-[#005ad4] text-white flex items-center gap-2 transition-all shadow-sm cursor-pointer"
+          >
+            <span>Recovery Center</span>
+            <ArrowRight size={14} />
           </button>
-          <LiveIndicator />
-          <p className="text-[12px]" style={{ color: 'var(--color-text-muted)' }}>
-            Real-Time Engine Active
-          </p>
+
+          {/* Live Engine Indicator */}
+          <div className="flex items-center gap-2 px-3 py-1.5 rounded bg-slate-100 border border-slate-200">
+            <LiveIndicator />
+            <span className="text-xs font-semibold text-slate-700">
+              Live Engine
+            </span>
+          </div>
         </div>
       </div>
 
-      {/* ── KPI Cards ── */}
+      {/* ── Expanded 5-Column KPI Metric Cards (Pure white background, clean contrast) ── */}
       {loading ? (
         <SkeletonLoader.MetricGrid count={5} />
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-5 gap-4">
-          {kpis.map((k) => (
-            <MetricCard key={k.label} {...k} />
-          ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5 gap-4">
+          {kpis.map((k) => {
+            const Icon = k.icon;
+            const isPositive = k.delta != null && k.delta > 0;
+            const isNegative = k.delta != null && k.delta < 0;
+
+            return (
+              <div
+                key={k.label}
+                className="p-5 rounded-lg bg-white border border-slate-200 shadow-2xs flex flex-col justify-between hover:border-slate-300 transition-colors"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                    {k.label}
+                  </span>
+                  <div
+                    className="w-8 h-8 rounded flex items-center justify-center flex-shrink-0"
+                    style={{ backgroundColor: k.bgTint }}
+                  >
+                    <Icon size={16} style={{ color: k.color }} />
+                  </div>
+                </div>
+
+                <div className="my-3">
+                  <p className="text-3xl font-extrabold font-mono text-slate-900 tracking-tight leading-none">
+                    {k.value}
+                  </p>
+                  <p className="text-xs text-slate-500 mt-1.5 font-medium truncate">
+                    {k.sub}
+                  </p>
+                </div>
+
+                {k.delta != null ? (
+                  <div className="flex items-center gap-1.5 text-xs font-semibold pt-3 border-t border-slate-100">
+                    {isPositive && <TrendingUp size={14} className="text-emerald-600" />}
+                    {isNegative && <TrendingDown size={14} className="text-red-600" />}
+                    <span className={isPositive ? 'text-emerald-700' : isNegative ? 'text-red-700' : 'text-slate-500'}>
+                      {k.delta > 0 ? '+' : ''}{k.delta}% {k.deltaLabel}
+                    </span>
+                  </div>
+                ) : (
+                  <div className="pt-3 border-t border-slate-100 text-xs text-slate-400 font-medium">
+                    Continuous monitoring
+                  </div>
+                )}
+              </div>
+            );
+          })}
         </div>
       )}
 
-      {/* ── Chart + Funnel ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        <div className="lg:col-span-2">
+      {/* ── Expanded Analytics Row (Chart + Funnel) ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        <div className="lg:col-span-2 bg-white border border-slate-200 rounded-lg shadow-2xs p-1">
           <RevenueRecoveryChart />
         </div>
-        <RecoveryFunnel />
+        <div className="bg-white border border-slate-200 rounded-lg shadow-2xs p-1">
+          <RecoveryFunnel />
+        </div>
       </div>
 
-      {/* ── Cases Table + High Priority + Live Activity ── */}
-      <div className="grid grid-cols-1 xl:grid-cols-3 gap-4">
-        {/* Recent Recovery Cases */}
-        <div className="xl:col-span-2 card overflow-hidden">
-          <div
-            className="flex items-center justify-between px-5 py-4"
-            style={{ borderBottom: '1px solid var(--color-border)' }}
-          >
-            <p className="text-[14px] font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-              Recent Recovery Cases
-            </p>
+      {/* ── Expanded Operations Row (Pure White Recent Recovery Table + Critical Alerts) ── */}
+      <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
+        {/* Left (2 cols): Recent Recovery Operations Table with 100% White Background */}
+        <div className="xl:col-span-2 bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-slate-200 bg-white">
+            <div>
+              <h3 className="text-base font-bold text-slate-900">
+                Recent Recovery Operations
+              </h3>
+              <p className="text-xs text-slate-500 mt-0.5">
+                Live autonomous intervention and state transitions across payment gateways
+              </p>
+            </div>
             <button
-              className="btn-link flex items-center gap-1 text-[12px]"
+              type="button"
               onClick={() => navigate('/recovery')}
+              className="text-xs font-bold text-[#0c6ff9] hover:underline flex items-center gap-1 cursor-pointer"
             >
-              View all <ArrowUpRight size={12} />
+              <span>View all cases</span>
+              <ArrowUpRight size={14} />
             </button>
           </div>
-          <div className="overflow-x-auto">
-            <table className="w-full">
+
+          <div className="overflow-x-auto bg-white">
+            <table className="w-full text-left text-xs bg-white">
               <thead>
-                <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                  {['Case', 'Customer', 'Amount', 'Risk', 'Strategy', 'Status'].map((h) => (
-                    <th
-                      key={h}
-                      className="text-left px-5 py-3 text-[11px] font-semibold uppercase tracking-wider"
-                      style={{ color: 'var(--color-text-muted)' }}
-                    >
-                      {h}
-                    </th>
-                  ))}
+                <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                  <th className="px-6 py-3.5">Case ID</th>
+                  <th className="px-6 py-3.5">Customer</th>
+                  <th className="px-6 py-3.5">Amount</th>
+                  <th className="px-6 py-3.5">Risk Band</th>
+                  <th className="px-6 py-3.5">Recommended Strategy</th>
+                  <th className="px-6 py-3.5">Status</th>
                 </tr>
               </thead>
-              <tbody>
-                {recentCases.map((c, i) => {
-                  const customer = MOCK_CUSTOMERS.find((cu) => cu.id === c.customerId);
-                  return (
-                    <tr
-                      key={c.id}
-                      onClick={() => navigate(`/recovery/${c.id}`)}
-                      className="cursor-pointer transition-colors duration-100"
-                      style={{ borderBottom: i < recentCases.length - 1 ? '1px solid var(--color-border)' : 'none' }}
-                      onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)')}
-                      onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = '')}
-                    >
-                      <td className="px-5 py-3.5 font-mono-data text-[12px] font-semibold" style={{ color: 'var(--color-brand)' }}>
-                        {c.id}
-                      </td>
-                      <td className="px-5 py-3.5 text-[13px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                        {customer?.name ?? '—'}
-                      </td>
-                      <td className="px-5 py-3.5 font-mono-data text-[13px] font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                        ₹{c.amount.toLocaleString('en-IN')}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <RiskBadge score={c.riskScore} />
-                      </td>
-                      <td className="px-5 py-3.5 text-[12px]" style={{ color: 'var(--color-text-secondary)' }}>
-                        {c.strategy}
-                      </td>
-                      <td className="px-5 py-3.5">
-                        <StatusBadge status={c.status} />
-                      </td>
-                    </tr>
-                  );
-                })}
+              <tbody className="divide-y divide-slate-100 bg-white">
+                {recentCases.length === 0 ? (
+                  <tr>
+                    <td colSpan="6" className="py-12 text-center text-slate-500 text-xs bg-white">
+                      No active recovery cases logged.
+                    </td>
+                  </tr>
+                ) : (
+                  recentCases.map((c) => {
+                    const customer = MOCK_CUSTOMERS.find((cu) => cu.id === c.customerId);
+                    return (
+                      <tr
+                        key={c.id}
+                        onClick={() => navigate(`/recovery/${c.id}`)}
+                        className="hover:bg-slate-50/80 cursor-pointer transition-colors bg-white"
+                      >
+                        <td className="px-6 py-4 font-mono font-bold text-[#0c6ff9]">
+                          {c.id}
+                        </td>
+                        <td className="px-6 py-4">
+                          <p className="font-semibold text-slate-900">
+                            {customer?.name ?? 'Customer'}
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            {customer?.email ?? '—'}
+                          </p>
+                        </td>
+                        <td className="px-6 py-4 font-mono font-bold text-slate-900 text-sm">
+                          ₹{c.amount.toLocaleString('en-IN')}.00
+                        </td>
+                        <td className="px-6 py-4">
+                          <RiskBadge score={c.riskScore} />
+                        </td>
+                        <td className="px-6 py-4 text-slate-800 font-medium">
+                          {c.strategy}
+                        </td>
+                        <td className="px-6 py-4">
+                          <StatusBadge status={c.status} />
+                        </td>
+                      </tr>
+                    );
+                  })
+                )}
               </tbody>
             </table>
           </div>
         </div>
 
-        {/* Right column: High Priority + Live Activity */}
-        <div className="flex flex-col gap-4">
-          {/* High Priority */}
+        {/* Right (1 col): Critical Escalation Queue & Live Telemetry Feed */}
+        <div className="space-y-6">
+          {/* Critical Escalation Queue (100% White Background) */}
           {MOCK_HIGH_PRIORITY.length > 0 && (
-            <div className="card overflow-hidden">
-              <div
-                className="flex items-center gap-2 px-5 py-4"
-                style={{ borderBottom: '1px solid var(--color-border)' }}
-              >
-                <AlertTriangle size={14} style={{ color: 'var(--color-danger)' }} />
-                <p className="text-[13px] font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                  High Priority
-                </p>
+            <div className="bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden">
+              <div className="flex items-center gap-2 px-5 py-3.5 border-b border-slate-200 bg-red-50/60">
+                <AlertTriangle size={15} className="text-red-600 flex-shrink-0" />
+                <h3 className="text-xs font-bold text-red-900 uppercase tracking-wider">
+                  Critical Escalation Queue
+                </h3>
               </div>
-              <div className="p-4 space-y-3">
-                {MOCK_HIGH_PRIORITY.map((c) => (
+
+              <div className="divide-y divide-slate-100 bg-white">
+                {MOCK_HIGH_PRIORITY.slice(0, 3).map((c) => (
                   <div
                     key={c.id}
-                    className="p-3.5 rounded-xl cursor-pointer transition-colors duration-100"
-                    style={{ border: '1px solid var(--color-border)', backgroundColor: 'var(--color-bg-page)' }}
                     onClick={() => navigate(`/recovery/${c.id}`)}
-                    onMouseEnter={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)')}
-                    onMouseLeave={(e) => (e.currentTarget.style.backgroundColor = 'var(--color-bg-page)')}
+                    className="p-4 hover:bg-slate-50/80 cursor-pointer transition-colors text-xs bg-white"
                   >
-                    <div className="flex items-start justify-between mb-2">
-                      <p className="text-[13px] font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                        {c.customer}
-                      </p>
-                      <p className="font-mono-data text-[13px] font-bold" style={{ color: 'var(--color-danger)' }}>
+                    <div className="flex items-center justify-between mb-1">
+                      <span className="font-bold text-slate-900 text-sm">{c.customer}</span>
+                      <span className="font-mono font-bold text-red-600 text-sm">
                         ₹{c.amount.toLocaleString('en-IN')}
-                      </p>
+                      </span>
                     </div>
-                    <p className="text-[11px] mb-2" style={{ color: 'var(--color-text-muted)' }}>
-                      Risk: {c.riskScore}% · Recovery: {c.recoveryProbability}%
-                    </p>
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between text-xs text-slate-500 mt-1">
+                      <span>Risk: <strong className="text-slate-700">{c.riskScore}%</strong> · Recovery: <strong className="text-emerald-700">{c.recoveryProbability}%</strong></span>
                       <StatusBadge status={c.status} size="sm" />
-                      <button className="btn-link flex items-center gap-1 text-[11px]" style={{ color: 'var(--color-brand)' }}>
-                        View <ExternalLink size={10} />
-                      </button>
                     </div>
                   </div>
                 ))}
@@ -249,8 +318,10 @@ export default function Dashboard() {
             </div>
           )}
 
-          {/* Live Activity */}
-          <LiveRecoveryActivity />
+          {/* Live Activity Stream */}
+          <div className="bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden">
+            <LiveRecoveryActivity />
+          </div>
         </div>
       </div>
     </div>

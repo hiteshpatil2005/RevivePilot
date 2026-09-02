@@ -137,18 +137,11 @@ async def seed_database(force: bool = False):
 
         now = datetime.now(timezone.utc)
 
-        # 4. Create 26 Transactions & 8 Recovery Cases
-        # List of transaction specs:
-        # (cust_key, pay_id, amount, status, method, failure_reason, hours_ago)
-        txns_specs = [
-            ("cust_001", "pay_RC10291", Decimal("25000.00"), TransactionStatus.SUCCESS.value, "CARD", "BANK_TIMEOUT", 1),
-            ("cust_002", "pay_RC10292", Decimal("120000.00"), TransactionStatus.FAILED.value, "CARD", "CARD_DECLINED", 3),
-            ("cust_003", "pay_RC10293", Decimal("75000.00"), TransactionStatus.FAILED.value, "CARD", "CARD_DECLINED", 5),
-            ("cust_004", "pay_RC10294", Decimal("12500.00"), TransactionStatus.FAILED.value, "NET_BANKING", "INSUFFICIENT_FUNDS", 8),
-            ("cust_005", "pay_RC10295", Decimal("3499.00"), TransactionStatus.FAILED.value, "UPI", "MANDATE_FAILED", 10),
-            ("cust_006", "pay_RC10296", Decimal("48000.00"), TransactionStatus.FAILED.value, "NET_BANKING", "NETWORK_ERROR", 14),
-            ("cust_007", "pay_RC10297", Decimal("18000.00"), TransactionStatus.FAILED.value, "CARD", "BANK_TIMEOUT", 18),
-            ("cust_008", "pay_RC10298", Decimal("92000.00"), TransactionStatus.FAILED.value, "CARD", "CARD_DECLINED", 22),
+        from app.payments.failure_taxonomy import FAILURE_TAXONOMY
+
+        # 4. Create Transactions & Recovery Cases covering all 25 Failure Causes + Normal Transactions
+        # Standard historical successful/pending transactions
+        base_txns = [
             ("cust_009", "pay_TXN1009", Decimal("15000.00"), TransactionStatus.SUCCESS.value, "UPI", None, 2),
             ("cust_010", "pay_TXN1010", Decimal("32000.00"), TransactionStatus.SUCCESS.value, "CARD", None, 4),
             ("cust_011", "pay_TXN1011", Decimal("4500.00"), TransactionStatus.SUCCESS.value, "WALLET", None, 6),
@@ -156,18 +149,53 @@ async def seed_database(force: bool = False):
             ("cust_001", "pay_TXN1013", Decimal("8900.00"), TransactionStatus.SUCCESS.value, "UPI", None, 12),
             ("cust_002", "pay_TXN1014", Decimal("54000.00"), TransactionStatus.SUCCESS.value, "CARD", None, 15),
             ("cust_003", "pay_TXN1015", Decimal("19500.00"), TransactionStatus.SUCCESS.value, "UPI", None, 17),
-            ("cust_004", "pay_TXN1016", Decimal("14200.00"), TransactionStatus.FAILED.value, "UPI", "BANK_TIMEOUT", 20),
-            ("cust_005", "pay_TXN1017", Decimal("27500.00"), TransactionStatus.FAILED.value, "NET_BANKING", "NETWORK_ERROR", 23),
-            ("cust_006", "pay_TXN1018", Decimal("6400.00"), TransactionStatus.FAILED.value, "WALLET", "INSUFFICIENT_FUNDS", 26),
-            ("cust_007", "pay_TXN1019", Decimal("83000.00"), TransactionStatus.FAILED.value, "CARD", "CARD_DECLINED", 28),
-            ("cust_008", "pay_TXN1020", Decimal("11000.00"), TransactionStatus.FAILED.value, "UPI", "MANDATE_FAILED", 31),
             ("cust_009", "pay_TXN1021", Decimal("9500.00"), TransactionStatus.PENDING.value, "UPI", None, 1),
             ("cust_010", "pay_TXN1022", Decimal("22000.00"), TransactionStatus.PENDING.value, "CARD", None, 2),
             ("cust_011", "pay_TXN1023", Decimal("50000.00"), TransactionStatus.PENDING.value, "NET_BANKING", None, 4),
             ("cust_012", "pay_TXN1024", Decimal("16500.00"), TransactionStatus.PENDING.value, "WALLET", None, 7),
-            ("cust_001", "pay_TXN1025", Decimal("37000.00"), TransactionStatus.FAILED.value, "CARD", "BANK_TIMEOUT", 35),
             ("cust_002", "pay_TXN1026", Decimal("89000.00"), TransactionStatus.SUCCESS.value, "CARD", None, 38),
         ]
+
+        # 25 transactions mapping directly to the 25 Failure Taxonomy items
+        method_cycle = ["CARD", "UPI", "NET_BANKING", "WALLET"]
+        cust_keys = list(customer_map.keys())
+        failure_txns = []
+        failure_cases = []
+
+        status_pool = [
+            RecoveryStatus.DETECTED.value,
+            RecoveryStatus.ANALYZING.value,
+            RecoveryStatus.APPROVED.value,
+            RecoveryStatus.EXECUTING.value,
+            RecoveryStatus.RECOVERED.value,
+            RecoveryStatus.FAILED.value,
+            RecoveryStatus.ESCALATED.value,
+            RecoveryStatus.STOPPED.value,
+        ]
+
+        for i, (cause_key, profile) in enumerate(FAILURE_TAXONOMY.items(), start=1):
+            c_key = cust_keys[(i - 1) % len(cust_keys)]
+            pay_id = f"pay_RC{10290 + i}"
+            amt = Decimal(str(1500 + (i * 2450)))
+            method = method_cycle[(i - 1) % len(method_cycle)]
+            h_ago = max(1, 48 - (i * 1.8))
+
+            failure_txns.append(
+                (c_key, pay_id, amt, TransactionStatus.FAILED.value, method, cause_key, h_ago)
+            )
+
+            # Assign realistic recovery case status and amounts
+            c_status = status_pool[(i - 1) % len(status_pool)]
+            exp_rec = (amt * Decimal(str(profile["base_prob"]))).quantize(Decimal("0.01"))
+            act_rec = amt if c_status == RecoveryStatus.RECOVERED.value else Decimal("0.00")
+            attempts = 1 if c_status in [RecoveryStatus.EXECUTING.value, RecoveryStatus.RECOVERED.value] else (3 if c_status == RecoveryStatus.FAILED.value else 0)
+
+            failure_cases.append(
+                (pay_id, c_status, profile["base_risk"], int(profile["base_prob"] * 100), cause_key, profile["strategy"], exp_rec, act_rec, attempts, 3)
+            )
+
+        txns_specs = failure_txns + base_txns
+        cases_specs = failure_cases
 
         txn_map = {}
         for cust_key, pay_id, amount, status, method, reason, h_ago in txns_specs:
@@ -188,19 +216,6 @@ async def seed_database(force: bool = False):
             txn_map[pay_id] = (t, c)
 
         await session.flush()
-
-        # 8 Recovery Cases specifications
-        # (pay_id, status, risk_score, recovery_prob, root_cause, strategy, expected_rec, actual_rec, attempts, max_attempts)
-        cases_specs = [
-            ("pay_RC10291", RecoveryStatus.RECOVERED.value, 91, 91, "BANK_TIMEOUT", "Delayed Retry", Decimal("22750.00"), Decimal("25000.00"), 1, 3),
-            ("pay_RC10292", RecoveryStatus.STOPPED.value, 95, 20, "CARD_DECLINED", "Fraud Risk Halt", Decimal("0.00"), Decimal("0.00"), 1, 3),
-            ("pay_RC10293", RecoveryStatus.EXECUTING.value, 85, 68, "CARD_DECLINED", "Smart Alternative Link", Decimal("51000.00"), Decimal("0.00"), 1, 3),
-            ("pay_RC10294", RecoveryStatus.ANALYZING.value, 62, 75, "INSUFFICIENT_FUNDS", "Delayed Retry", Decimal("9375.00"), Decimal("0.00"), 0, 3),
-            ("pay_RC10295", RecoveryStatus.DETECTED.value, 45, 82, "MANDATE_FAILED", "Mandate Re-attempt", Decimal("2869.00"), Decimal("0.00"), 0, 3),
-            ("pay_RC10296", RecoveryStatus.APPROVED.value, 78, 70, "NETWORK_ERROR", "Alternative Payment Link", Decimal("33600.00"), Decimal("0.00"), 0, 3),
-            ("pay_RC10297", RecoveryStatus.FAILED.value, 55, 30, "BANK_TIMEOUT", "Delayed Retry", Decimal("0.00"), Decimal("0.00"), 3, 3),
-            ("pay_RC10298", RecoveryStatus.ESCALATED.value, 88, 50, "CARD_DECLINED", "VIP Human Review", Decimal("46000.00"), Decimal("0.00"), 2, 3),
-        ]
 
         case_map = {}
         for pay_id, c_status, risk, prob, cause, strategy, exp_amt, act_amt, attempts, max_att in cases_specs:

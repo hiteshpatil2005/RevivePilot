@@ -1,19 +1,21 @@
 import { useState, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { CreditCard, ChevronRight, X, ChevronLeft, AlertCircle, RefreshCw } from 'lucide-react';
+import {
+  CreditCard, ChevronRight, X, ChevronLeft, AlertCircle, RefreshCw,
+  ExternalLink, ArrowRight, CheckCircle2, ShieldCheck
+} from 'lucide-react';
 import { useTransactions } from '../../hooks/useTransactions';
-import SectionHeader from '../../components/common/SectionHeader';
 import SearchInput from '../../components/common/SearchInput';
 import FilterDropdown from '../../components/common/FilterDropdown';
 import StatusBadge from '../../components/common/StatusBadge';
 import EmptyState from '../../components/common/EmptyState';
-import { SkeletonTable } from '../../components/common/SkeletonLoader';
+import SkeletonLoader from '../../components/common/SkeletonLoader';
 
 const METHOD_LABELS = {
-  CARD:        'Card',
-  UPI:         'UPI',
+  CARD:        'Credit / Debit Card',
+  UPI:         'UPI Instant',
   NET_BANKING: 'Net Banking',
-  WALLET:      'Wallet',
+  WALLET:      'Digital Wallet',
 };
 
 const STATUS_OPTS = [
@@ -25,21 +27,12 @@ const STATUS_OPTS = [
 ];
 
 const METHOD_OPTS = [
-  { value: '',           label: 'All Methods'  },
-  { value: 'CARD',       label: 'Card'         },
-  { value: 'UPI',        label: 'UPI'          },
-  { value: 'NET_BANKING',label: 'Net Banking'  },
-  { value: 'WALLET',     label: 'Wallet'       },
+  { value: '',            label: 'All Methods'   },
+  { value: 'CARD',        label: 'Card'          },
+  { value: 'UPI',         label: 'UPI'           },
+  { value: 'NET_BANKING', label: 'Net Banking'   },
+  { value: 'WALLET',      label: 'Wallet'        },
 ];
-
-const FAILURE_COLORS = {
-  BANK_TIMEOUT:       '#ef4444',
-  INSUFFICIENT_FUNDS: '#f59e0b',
-  CARD_DECLINED:      '#ef4444',
-  NETWORK_ERROR:      '#06b6d4',
-  MANDATE_FAILED:     '#8b5cf6',
-  UNKNOWN:            '#94a3b8',
-};
 
 function fmtDateTime(iso) {
   if (!iso) return '—';
@@ -51,150 +44,134 @@ function fmtDateTime(iso) {
 function TransactionDrawer({ txn, onClose, navigate }) {
   if (!txn) return null;
   const customer = txn.customer || {};
+  const amt = Number(txn.amount || 0);
+  const paymentId = txn.external_payment_id || txn.externalPaymentId || txn.id;
+  const statusStr = String(txn.status || 'PENDING').toUpperCase();
 
   return (
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/30 backdrop-blur-[2px]"
+        className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-[2px]"
         onClick={onClose}
         aria-hidden="true"
       />
-      {/* Panel */}
-      <div
-        className="fixed top-0 right-0 h-full w-full max-w-sm z-50 overflow-y-auto animate-fade-in"
-        style={{
-          backgroundColor: 'var(--color-bg-card)',
-          borderLeft: '1px solid var(--color-border)',
-          boxShadow: 'var(--shadow-modal)',
-        }}
-      >
-        {/* Header */}
-        <div
-          className="sticky top-0 flex items-center justify-between px-5 py-4 z-10"
-          style={{ backgroundColor: 'var(--color-bg-card)', borderBottom: '1px solid var(--color-border)' }}
-        >
-          <div>
-            <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
-              Transaction Details
-            </p>
-            <p className="font-mono-data text-[13px] font-bold mt-0.5" style={{ color: 'var(--color-text-primary)' }}>
-              {txn.external_payment_id || txn.externalPaymentId || txn.id}
-            </p>
+      {/* Drawer Panel */}
+      <div className="fixed top-0 right-0 h-full w-full max-w-md z-50 overflow-y-auto bg-white border-l border-slate-200 shadow-2xl animate-in slide-in-from-right duration-200 flex flex-col justify-between">
+        <div>
+          {/* Drawer Header */}
+          <div className="sticky top-0 flex items-center justify-between px-6 py-4.5 bg-white border-b border-slate-200 z-10">
+            <div>
+              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+                Payment Telemetry
+              </p>
+              <p className="font-mono text-base font-bold text-slate-900 mt-0.5">
+                {paymentId}
+              </p>
+            </div>
+            <button
+              type="button"
+              onClick={onClose}
+              className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
+              aria-label="Close drawer"
+            >
+              <X size={17} />
+            </button>
           </div>
-          <button
-            onClick={onClose}
-            className="w-8 h-8 rounded-lg flex items-center justify-center cursor-pointer"
-            style={{ backgroundColor: 'var(--color-bg-hover)' }}
-            aria-label="Close"
-          >
-            <X size={15} style={{ color: 'var(--color-text-secondary)' }} />
-          </button>
+
+          <div className="p-6 space-y-5">
+            {/* Amount Banner */}
+            <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between">
+              <div>
+                <span className="text-[11px] uppercase font-bold text-slate-500 tracking-wider">
+                  Transaction Amount
+                </span>
+                <p className="text-2xl font-bold font-mono text-slate-900 mt-0.5">
+                  ₹{amt.toLocaleString('en-IN')}.00
+                </p>
+              </div>
+              <StatusBadge status={txn.status} />
+            </div>
+
+            {/* Customer Information */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Customer Information
+              </h4>
+              <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 text-xs">
+                <div className="p-3 flex justify-between">
+                  <span className="text-slate-500">Name</span>
+                  <span className="font-semibold text-slate-900">{customer.name || txn.customer_name || 'Customer'}</span>
+                </div>
+                <div className="p-3 flex justify-between">
+                  <span className="text-slate-500">Email</span>
+                  <span className="font-mono text-slate-800">{customer.email || txn.customer_email || '—'}</span>
+                </div>
+                {customer.phone && (
+                  <div className="p-3 flex justify-between">
+                    <span className="text-slate-500">Phone</span>
+                    <span className="font-mono text-slate-800">{customer.phone}</span>
+                  </div>
+                )}
+              </div>
+            </div>
+
+            {/* Gateway Metadata */}
+            <div className="space-y-2">
+              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
+                Gateway Metadata
+              </h4>
+              <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 text-xs">
+                <div className="p-3 flex justify-between">
+                  <span className="text-slate-500">Payment Method</span>
+                  <span className="font-semibold text-slate-900">
+                    {METHOD_LABELS[txn.payment_method || txn.paymentMethod || 'CARD'] || 'Card'}
+                  </span>
+                </div>
+                <div className="p-3 flex justify-between">
+                  <span className="text-slate-500">Currency</span>
+                  <span className="font-mono font-semibold text-slate-900">{txn.currency || 'INR'}</span>
+                </div>
+                <div className="p-3 flex justify-between">
+                  <span className="text-slate-500">Created Timestamp</span>
+                  <span className="text-slate-700">{fmtDateTime(txn.created_at || txn.createdAt)}</span>
+                </div>
+              </div>
+            </div>
+
+            {/* Failure Reason */}
+            {(txn.failure_reason || txn.failureReason) && (
+              <div className="p-4 rounded-lg bg-red-50 border border-red-200 space-y-1 text-xs">
+                <p className="font-bold text-red-900 uppercase tracking-wider text-[11px]">
+                  Payment Failure Diagnostics
+                </p>
+                <p className="font-mono font-semibold text-red-700">
+                  {txn.failure_reason || txn.failureReason}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
 
-        <div className="p-5 space-y-5">
-          {/* Amount + status */}
-          <div
-            className="flex items-center justify-between p-4 rounded-xl"
-            style={{ backgroundColor: 'var(--color-bg-muted)' }}
-          >
-            <div>
-              <p className="text-[11px] font-medium" style={{ color: 'var(--color-text-muted)' }}>
-                Amount
-              </p>
-              <p className="font-mono-data text-[22px] font-bold mt-0.5" style={{ color: 'var(--color-text-primary)' }}>
-                ₹{Number(txn.amount || 0).toLocaleString('en-IN')}
-              </p>
-            </div>
-            <StatusBadge status={txn.status} />
-          </div>
-
-          {/* Customer */}
-          <div
-            className="p-4 rounded-xl space-y-2.5"
-            style={{ backgroundColor: 'var(--color-bg-muted)' }}
-          >
-            <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
-              Customer
-            </p>
-            <div className="flex items-center justify-between">
-              <span className="text-[13px] font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-                {customer.name || txn.customer_name || 'Customer'}
-              </span>
-              <span className="font-mono-data text-[11px]" style={{ color: 'var(--color-text-muted)' }}>
-                {customer.externalCustomerId || customer.external_customer_id || txn.customerId || '—'}
-              </span>
-            </div>
-            {customer.email && (
-              <p className="text-[12px]" style={{ color: 'var(--color-text-secondary)' }}>
-                {customer.email}
-              </p>
-            )}
-            {customer.phone && (
-              <p className="text-[12px]" style={{ color: 'var(--color-text-secondary)' }}>
-                {customer.phone}
-              </p>
-            )}
-          </div>
-
-          {/* Payment meta */}
-          <div
-            className="p-4 rounded-xl space-y-2.5"
-            style={{ backgroundColor: 'var(--color-bg-muted)' }}
-          >
-            <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-text-muted)' }}>
-              Payment Information
-            </p>
-            <div className="flex justify-between text-[12px]">
-              <span style={{ color: 'var(--color-text-secondary)' }}>Method</span>
-              <span className="font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                {METHOD_LABELS[txn.payment_method || txn.paymentMethod || txn.method] || (txn.payment_method || txn.method || 'CARD')}
-              </span>
-            </div>
-            <div className="flex justify-between text-[12px]">
-              <span style={{ color: 'var(--color-text-secondary)' }}>Currency</span>
-              <span className="font-mono-data font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                {txn.currency || 'INR'}
-              </span>
-            </div>
-            <div className="flex justify-between text-[12px]">
-              <span style={{ color: 'var(--color-text-secondary)' }}>Created</span>
-              <span style={{ color: 'var(--color-text-primary)' }}>
-                {fmtDateTime(txn.created_at || txn.createdAt)}
-              </span>
-            </div>
-          </div>
-
-          {/* Failure reason */}
-          {(txn.failure_reason || txn.failureReason) && (
-            <div
-              className="p-4 rounded-xl space-y-1.5"
-              style={{
-                backgroundColor: 'var(--color-danger-bg)',
-                border: '1px solid rgba(239, 68, 68, 0.2)',
-              }}
-            >
-              <p className="text-[11px] font-semibold uppercase tracking-wider" style={{ color: 'var(--color-danger)' }}>
-                Failure Reason
-              </p>
-              <p className="text-[13px] font-medium" style={{ color: 'var(--color-danger)' }}>
-                {txn.failure_reason || txn.failureReason}
-              </p>
-            </div>
-          )}
-
-          {/* Link to Recovery if failed */}
-          {String(txn.status).toUpperCase() === 'FAILED' && (
+        {/* Drawer Footer Action */}
+        <div className="p-6 border-t border-slate-200 bg-slate-50">
+          {statusStr === 'FAILED' ? (
             <button
+              type="button"
               onClick={() => {
                 onClose();
-                navigate('/recovery');
+                navigate(`/recovery/${txn.recoveryCase || paymentId}`);
               }}
-              className="btn-primary w-full py-2.5 text-[13px] flex items-center justify-center gap-2 cursor-pointer"
+              className="w-full h-10 rounded-md bg-[#0c6ff9] hover:bg-[#005ad4] text-white text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer"
             >
               <span>View in Recovery Center</span>
-              <ChevronRight size={14} />
+              <ArrowRight size={14} />
             </button>
+          ) : (
+            <div className="text-center text-xs text-slate-500 flex items-center justify-center gap-1.5 font-medium">
+              <CheckCircle2 size={14} className="text-emerald-600" />
+              <span>Payment settled and verified</span>
+            </div>
           )}
         </div>
       </div>
@@ -202,7 +179,7 @@ function TransactionDrawer({ txn, onClose, navigate }) {
   );
 }
 
-const HEADERS = ['Payment ID', 'Customer', 'Amount', 'Method', 'Status', 'Failure Reason', 'Created'];
+const HEADERS = ['Payment ID', 'Customer Profile', 'Amount', 'Payment Method', 'Gateway Status', 'Failure Diagnostics', 'Created At', ''];
 
 export default function Transactions() {
   const navigate = useNavigate();
@@ -213,7 +190,7 @@ export default function Transactions() {
   const [selectedTxn, setSelectedTxn] = useState(null);
 
   // Call real backend through hook
-  const { transactions, pagination, loading, error, refresh } = useTransactions({
+  const { transactions = [], pagination, loading, error, refresh } = useTransactions({
     page,
     limit: 20,
     status: statusF ? statusF.toUpperCase() : undefined,
@@ -222,8 +199,9 @@ export default function Transactions() {
 
   // Client-side filtering by method if needed
   const displayTxns = useMemo(() => {
-    if (!methodF) return transactions;
-    return transactions.filter(t => {
+    const list = Array.isArray(transactions) ? transactions : [];
+    if (!methodF) return list;
+    return list.filter(t => {
       const m = (t.payment_method || t.paymentMethod || t.method || '').toUpperCase();
       return m === methodF.toUpperCase();
     });
@@ -243,203 +221,247 @@ export default function Transactions() {
     setMethodF(val);
   };
 
-  const totalPages = pagination?.pages || Math.ceil((pagination?.total || 1) / 20) || 1;
+  const totalPages = pagination?.pages || Math.ceil((pagination?.total || displayTxns.length || 1) / 20) || 1;
 
   return (
-    <div className="p-6 max-w-screen-xl mx-auto space-y-5 animate-fade-in">
-      <SectionHeader
-        title="Transactions"
-        subtitle="Monitor real-time payment activity and PostgreSQL revenue outcomes."
-      />
+    <div className="w-full max-w-[1720px] px-6 lg:px-10 py-7 space-y-6 mx-auto animate-fade-in text-slate-900 font-sans">
+      {/* ── Enterprise Header (Razorpay White Theme) ── */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 pb-5 border-b border-slate-200">
+        <div>
+          <div className="flex items-center gap-3">
+            <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+              Payment Transactions
+            </h1>
+            <span className="px-2.5 py-0.5 rounded text-[11px] font-bold uppercase tracking-wider bg-blue-50 text-[#0c6ff9] border border-blue-200">
+              Gateway Ledger
+            </span>
+          </div>
+          <p className="text-sm text-slate-600 mt-1">
+            Real-time transaction tracking, failure reasons, and automated recovery linkage
+          </p>
+        </div>
 
-      {/* Filters */}
-      <div className="flex flex-wrap gap-3">
-        <SearchInput
-          value={search}
-          onChange={handleSearchChange}
-          placeholder="Search payments, customers…"
-          className="w-full sm:w-64"
-        />
-        <FilterDropdown value={statusF} onChange={handleStatusChange} options={STATUS_OPTS} className="w-40" />
-        <FilterDropdown value={methodF} onChange={handleMethodChange} options={METHOD_OPTS} className="w-40" />
-        {(search || statusF || methodF) && (
-          <button
-            className="btn-ghost text-[12px]"
-            onClick={() => { setSearch(''); setStatusF(''); setMethodF(''); setPage(1); }}
+        {/* Clean Production Toolbar */}
+        <div className="flex items-center gap-3 flex-shrink-0">
+          <a
+            href="http://localhost:5174"
+            target="_blank"
+            rel="noreferrer"
+            className="h-9 px-4 rounded text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-[#0c6ff9] hover:border-[#0c6ff9] flex items-center gap-2 transition-all shadow-2xs"
+            title="Open customer checkout portal on port 5174"
           >
-            Clear filters
+            <ExternalLink size={14} className="text-[#0c6ff9]" />
+            <span>Customer Store (:5174)</span>
+          </a>
+
+          <button
+            type="button"
+            onClick={() => refresh()}
+            className="h-9 px-3.5 rounded text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 flex items-center gap-1.5 transition-colors shadow-2xs cursor-pointer"
+            title="Refresh transactions"
+          >
+            <RefreshCw size={14} className={loading ? 'animate-spin' : ''} />
+            <span>Refresh</span>
           </button>
-        )}
-        <button
-          className="btn-ghost text-[12px] ml-auto flex items-center gap-1.5"
-          onClick={() => refresh()}
-          title="Refresh transactions"
-        >
-          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} />
-          <span>Refresh</span>
-        </button>
+        </div>
       </div>
 
-      <div className="flex items-center justify-between text-[12px]" style={{ color: 'var(--color-text-muted)' }}>
-        <p>
-          {pagination?.total || displayTxns.length} transaction{(pagination?.total || displayTxns.length) !== 1 ? 's' : ''} found
-        </p>
-        {totalPages > 1 && (
-          <p>Page {page} of {totalPages}</p>
-        )}
+      {/* ── Unified Expanded Filter Toolbar ── */}
+      <div className="p-4 bg-white border border-slate-200 rounded-lg shadow-2xs flex flex-wrap items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center gap-3 flex-1">
+          <div className="w-full sm:w-72">
+            <SearchInput
+              value={search}
+              onChange={handleSearchChange}
+              placeholder="Search payment ID, customer, order..."
+            />
+          </div>
+          <FilterDropdown value={statusF} onChange={handleStatusChange} options={STATUS_OPTS} className="w-44" />
+          <FilterDropdown value={methodF} onChange={handleMethodChange} options={METHOD_OPTS} className="w-44" />
+
+          {(search || statusF || methodF) && (
+            <button
+              type="button"
+              className="text-xs text-red-600 hover:text-red-800 font-semibold flex items-center gap-1 px-2.5 py-1.5 rounded hover:bg-red-50 cursor-pointer transition-colors"
+              onClick={() => { setSearch(''); setStatusF(''); setMethodF(''); setPage(1); }}
+            >
+              <X size={13} />
+              <span>Reset Filters</span>
+            </button>
+          )}
+        </div>
+
+        <div className="text-xs font-semibold text-slate-500">
+          Showing <strong className="text-slate-900">{pagination?.total ?? displayTxns.length}</strong> transactions
+        </div>
       </div>
 
       {/* Error state */}
       {error && (
-        <div
-          className="p-4 rounded-xl flex items-center justify-between"
-          style={{
-            backgroundColor: 'var(--color-danger-bg)',
-            border: '1px solid rgba(239, 68, 68, 0.2)',
-          }}
-        >
-          <div className="flex items-center gap-2.5">
-            <AlertCircle size={18} style={{ color: 'var(--color-danger)' }} />
-            <span className="text-[13px] font-medium" style={{ color: 'var(--color-danger)' }}>
-              {error}
-            </span>
+        <div className="p-4 rounded-lg bg-red-50 border border-red-200 flex items-center justify-between text-xs text-red-700 font-medium animate-in fade-in">
+          <div className="flex items-center gap-2">
+            <AlertCircle size={16} className="text-red-600 flex-shrink-0" />
+            <span>{error}</span>
           </div>
-          <button onClick={() => refresh()} className="btn-secondary text-[12px] px-3 py-1.5">
+          <button
+            type="button"
+            onClick={() => refresh()}
+            className="px-3 py-1 rounded bg-white border border-red-200 text-red-700 hover:bg-red-50 font-semibold cursor-pointer"
+          >
             Retry
           </button>
         </div>
       )}
 
-      {/* Table Container */}
-      <div className="card overflow-hidden">
-        {loading ? (
-          <SkeletonTable rows={6} />
-        ) : displayTxns.length === 0 ? (
-          <EmptyState
-            icon={<CreditCard size={20} style={{ color: 'var(--color-text-muted)' }} />}
-            title="No transactions found"
-            subtitle="Try adjusting your search or filter criteria."
-          />
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr style={{ borderBottom: '1px solid var(--color-border)' }}>
-                  {HEADERS.map(h => (
-                    <th
-                      key={h}
-                      className="text-left px-5 py-3 text-[11px] font-semibold uppercase tracking-wider whitespace-nowrap"
-                      style={{ color: 'var(--color-text-muted)' }}
-                    >
-                      {h}
-                    </th>
-                  ))}
-                  <th className="px-5 py-3" />
-                </tr>
-              </thead>
-              <tbody>
-                {displayTxns.map((txn, i) => {
-                  const custName = txn.customer?.name || txn.customer_name || 'Customer';
-                  const pMethod = txn.payment_method || txn.paymentMethod || txn.method || 'CARD';
-                  const fReason = txn.failure_reason || txn.failureReason;
-                  const amt = Number(txn.amount || 0);
-
-                  return (
-                    <tr
-                      key={txn.id}
-                      onClick={() => setSelectedTxn(txn)}
-                      className="cursor-pointer transition-colors duration-100"
-                      style={{ borderBottom: i < displayTxns.length - 1 ? '1px solid var(--color-border)' : 'none' }}
-                      onMouseEnter={e => e.currentTarget.style.backgroundColor = 'var(--color-bg-hover)'}
-                      onMouseLeave={e => e.currentTarget.style.backgroundColor = ''}
-                    >
-                      <td className="px-5 py-4 font-mono-data text-[12px] font-semibold" style={{ color: 'var(--color-brand)' }}>
-                        {txn.external_payment_id || txn.externalPaymentId || txn.id}
-                      </td>
-                      <td className="px-5 py-4 text-[13px] font-medium" style={{ color: 'var(--color-text-primary)' }}>
-                        {custName}
-                      </td>
-                      <td className="px-5 py-4 font-mono-data text-[13px] font-bold" style={{ color: 'var(--color-text-primary)' }}>
-                        ₹{amt.toLocaleString('en-IN')}
-                      </td>
-                      <td className="px-5 py-4 text-[12px]" style={{ color: 'var(--color-text-secondary)' }}>
-                        {METHOD_LABELS[pMethod] ?? pMethod}
-                      </td>
-                      <td className="px-5 py-4">
-                        <StatusBadge status={txn.status} />
-                      </td>
-                      <td className="px-5 py-4">
-                        {fReason ? (
-                          <span
-                            className="text-[11px] font-mono-data font-semibold px-2 py-0.5 rounded"
-                            style={{
-                              backgroundColor: 'var(--color-danger-bg)',
-                              color: 'var(--color-danger)',
-                            }}
-                          >
-                            {fReason}
-                          </span>
-                        ) : (
-                          <span className="text-[12px]" style={{ color: 'var(--color-text-muted)' }}>—</span>
-                        )}
-                      </td>
-                      <td className="px-5 py-4 text-[12px] whitespace-nowrap" style={{ color: 'var(--color-text-muted)' }}>
-                        {fmtDateTime(txn.created_at || txn.createdAt)}
-                      </td>
-                      <td className="px-5 py-4">
-                        <ChevronRight size={16} style={{ color: 'var(--color-text-muted)' }} />
-                      </td>
-                    </tr>
-                  );
-                })}
-              </tbody>
-            </table>
-          </div>
-        )}
-
-        {/* Pagination Bar */}
-        {totalPages > 1 && (
-          <div
-            className="flex items-center justify-between px-5 py-3.5"
-            style={{
-              borderTop: '1px solid var(--color-border)',
-              backgroundColor: 'var(--color-bg-card)',
-            }}
-          >
-            <button
-              onClick={() => setPage(p => Math.max(1, p - 1))}
-              disabled={page <= 1}
-              className="btn-secondary text-[12px] flex items-center gap-1.5 px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <ChevronLeft size={14} />
-              <span>Previous</span>
-            </button>
-            <div className="flex items-center gap-1 text-[12px] font-medium" style={{ color: 'var(--color-text-secondary)' }}>
-              <span>Page</span>
-              <span className="font-bold" style={{ color: 'var(--color-text-primary)' }}>{page}</span>
-              <span>of</span>
-              <span className="font-bold" style={{ color: 'var(--color-text-primary)' }}>{totalPages}</span>
+      {/* ── Expanded Data Table Card (Pure White, Comfortable Spacing) ── */}
+      {loading ? (
+        <div className="bg-white border border-slate-200 rounded-lg p-6 shadow-2xs">
+          <SkeletonLoader.Table rows={8} />
+        </div>
+      ) : (
+        <div className="bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden">
+          {displayTxns.length === 0 ? (
+            <div className="py-16">
+              <EmptyState
+                icon={<CreditCard size={24} className="text-slate-400" />}
+                title="No transactions found"
+                subtitle="Try adjusting your search criteria or resetting filters."
+              />
             </div>
-            <button
-              onClick={() => setPage(p => Math.min(totalPages, p + 1))}
-              disabled={page >= totalPages}
-              className="btn-secondary text-[12px] flex items-center gap-1.5 px-3 py-1.5 disabled:opacity-40 disabled:cursor-not-allowed"
-            >
-              <span>Next</span>
-              <ChevronRight size={14} />
-            </button>
-          </div>
-        )}
-      </div>
+          ) : (
+            <div className="overflow-x-auto bg-white">
+              <table className="w-full text-left text-xs bg-white">
+                <thead>
+                  <tr className="border-b border-slate-200 bg-slate-50 text-[11px] font-bold text-slate-600 uppercase tracking-wider">
+                    {HEADERS.map((h, idx) => (
+                      <th
+                        key={idx}
+                        className="px-6 py-4 whitespace-nowrap"
+                      >
+                        {h}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100 bg-white">
+                  {displayTxns.map((txn) => {
+                    const cust =
+                      (typeof txn.customer === 'object' && txn.customer)
+                        ? txn.customer
+                        : {};
+                    const custName = cust.name || txn.customer_name || 'Customer';
+                    const custEmail = cust.email || txn.customer_email || '—';
+                    const pMethod = txn.payment_method || txn.paymentMethod || txn.method || 'CARD';
+                    const fReason = txn.failure_reason || txn.failureReason;
+                    const amt = Number(txn.amount || 0);
+                    const paymentId = txn.external_payment_id || txn.externalPaymentId || txn.id;
 
-      {/* Transaction Detail Drawer */}
-      {selectedTxn && (
-        <TransactionDrawer
-          txn={selectedTxn}
-          onClose={() => setSelectedTxn(null)}
-          navigate={navigate}
-        />
+                    return (
+                      <tr
+                        key={txn.id}
+                        onClick={() => setSelectedTxn(txn)}
+                        className="hover:bg-slate-50/80 cursor-pointer transition-colors bg-white group"
+                      >
+                        {/* Payment ID */}
+                        <td className="px-6 py-4.5 font-mono font-bold text-[#0c6ff9] text-sm group-hover:underline">
+                          {paymentId}
+                        </td>
+
+                        {/* Customer */}
+                        <td className="px-6 py-4.5">
+                          <p className="font-semibold text-slate-900 text-sm">
+                            {custName}
+                          </p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">
+                            {custEmail}
+                          </p>
+                        </td>
+
+                        {/* Amount */}
+                        <td className="px-6 py-4.5">
+                          <span className="font-mono font-bold text-slate-900 text-sm">
+                            ₹{amt.toLocaleString('en-IN')}.00
+                          </span>
+                        </td>
+
+                        {/* Method */}
+                        <td className="px-6 py-4.5 text-slate-700 font-medium">
+                          {METHOD_LABELS[pMethod] || pMethod}
+                        </td>
+
+                        {/* Status */}
+                        <td className="px-6 py-4.5">
+                          <StatusBadge status={txn.status} />
+                        </td>
+
+                        {/* Failure Diagnostics */}
+                        <td className="px-6 py-4.5">
+                          {fReason ? (
+                            <span className="font-mono text-xs font-semibold px-2.5 py-1 rounded bg-red-50 text-red-700 border border-red-200">
+                              {fReason}
+                            </span>
+                          ) : (
+                            <span className="text-slate-400 font-mono">—</span>
+                          )}
+                        </td>
+
+                        {/* Created At */}
+                        <td className="px-6 py-4.5 text-slate-500 whitespace-nowrap text-[11px]">
+                          {fmtDateTime(txn.created_at || txn.createdAt)}
+                        </td>
+
+                        {/* Chevron Action */}
+                        <td className="px-6 py-4.5 text-right">
+                          <ChevronRight size={16} className="text-slate-400 group-hover:text-[#0c6ff9] group-hover:translate-x-1 transition-all" />
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
+
+          {/* Pagination Bar */}
+          {totalPages > 1 && (
+            <div className="flex items-center justify-between px-6 py-3.5 border-t border-slate-200 bg-slate-50/50 text-xs">
+              <button
+                type="button"
+                onClick={() => setPage(p => Math.max(1, p - 1))}
+                disabled={page <= 1}
+                className="h-8 px-3 rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 font-semibold transition-colors"
+              >
+                <ChevronLeft size={14} />
+                <span>Previous</span>
+              </button>
+
+              <div className="flex items-center gap-1 text-slate-600 font-medium">
+                <span>Page</span>
+                <span className="font-bold text-slate-900">{page}</span>
+                <span>of</span>
+                <span className="font-bold text-slate-900">{totalPages}</span>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+                disabled={page >= totalPages}
+                className="h-8 px-3 rounded bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 disabled:opacity-40 disabled:cursor-not-allowed flex items-center gap-1 font-semibold transition-colors"
+              >
+                <span>Next</span>
+                <ChevronRight size={14} />
+              </button>
+            </div>
+          )}
+        </div>
       )}
+
+      {/* Slide-over Transaction Drawer */}
+      <TransactionDrawer
+        txn={selectedTxn}
+        onClose={() => setSelectedTxn(null)}
+        navigate={navigate}
+      />
     </div>
   );
 }

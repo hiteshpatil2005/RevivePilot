@@ -216,7 +216,7 @@ function RetryPolicyEditor() {
           style={{ width: '100%' }}
         >
           <Save size={14} />
-          {saved ? '✓ Changes Saved' : 'Save Changes'}
+          {saved ? 'Changes Saved' : 'Save Changes'}
         </button>
       </div>
     </SectionCard>
@@ -298,7 +298,7 @@ function AmountLimitPolicy() {
 
         <button onClick={handleSave} className="btn-primary" style={{ width: '100%' }}>
           <Save size={14} />
-          {saved ? '✓ Saved' : 'Save Changes'}
+          {saved ? 'Saved' : 'Save Changes'}
         </button>
       </div>
     </SectionCard>
@@ -357,7 +357,7 @@ function StoppingRules() {
 
       <button onClick={handleSave} className="btn-primary" style={{ width: '100%' }}>
         <Save size={14} />
-        {saved ? '✓ Saved' : 'Save Stopping Rules'}
+        {saved ? 'Saved' : 'Save Stopping Rules'}
       </button>
     </SectionCard>
   );
@@ -410,7 +410,7 @@ function EscalationRules() {
 
       <button onClick={handleSave} className="btn-primary" style={{ width: '100%' }}>
         <Save size={14} />
-        {saved ? '✓ Saved' : 'Save Escalation Rules'}
+        {saved ? 'Saved' : 'Save Escalation Rules'}
       </button>
     </SectionCard>
   );

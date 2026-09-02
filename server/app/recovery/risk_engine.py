@@ -10,62 +10,24 @@ class RiskEvaluationResult(NamedTuple):
     qualifies_for_recovery: bool
 
 
+from app.payments.failure_taxonomy import FAILURE_TAXONOMY, get_failure_profile
+
+
 class DeterministicRiskEngine:
     """
     Deterministic revenue risk evaluation engine.
     Calculates leakage risk, recovery probability, and strategy based on financial
-    and gateway failure parameters without relying on external LLM calls.
+    and gateway failure parameters across all 25 failure causes.
     """
 
     REASON_PROFILES: Dict[str, Dict[str, Any]] = {
-        "BANK_TIMEOUT": {
-            "base_risk": 75,
-            "base_prob": 0.90,
-            "strategy": "Delayed Retry",
+        k: {
+            "base_risk": v["base_risk"],
+            "base_prob": v["base_prob"],
+            "strategy": v["strategy"],
             "qualifies": True,
-        },
-        "CARD_DECLINED": {
-            "base_risk": 85,
-            "base_prob": 0.65,
-            "strategy": "Smart Alternative Link",
-            "qualifies": True,
-        },
-        "INSUFFICIENT_FUNDS": {
-            "base_risk": 65,
-            "base_prob": 0.75,
-            "strategy": "Delayed Retry + Balance Nudge",
-            "qualifies": True,
-        },
-        "NETWORK_ERROR": {
-            "base_risk": 60,
-            "base_prob": 0.90,
-            "strategy": "Instant Network Retry",
-            "qualifies": True,
-        },
-        "MANDATE_FAILED": {
-            "base_risk": 75,
-            "base_prob": 0.70,
-            "strategy": "Mandate Re-presentation",
-            "qualifies": True,
-        },
-        "LIMIT_EXCEEDED": {
-            "base_risk": 80,
-            "base_prob": 0.60,
-            "strategy": "Alternative Payment Method",
-            "qualifies": True,
-        },
-        "AUTHENTICATION_FAILED": {
-            "base_risk": 70,
-            "base_prob": 0.70,
-            "strategy": "Authentication Re-prompt",
-            "qualifies": True,
-        },
-        "UNKNOWN_FAILURE": {
-            "base_risk": 80,
-            "base_prob": 0.40,
-            "strategy": "Manual Review",
-            "qualifies": True,
-        },
+        }
+        for k, v in FAILURE_TAXONOMY.items()
     }
 
     @classmethod
@@ -79,7 +41,12 @@ class DeterministicRiskEngine:
         reason_key = (failure_reason or "UNKNOWN_FAILURE").upper()
         profile = cls.REASON_PROFILES.get(
             reason_key,
-            cls.REASON_PROFILES["UNKNOWN_FAILURE"],
+            cls.REASON_PROFILES.get("UNKNOWN_FAILURE", {
+                "base_risk": 75,
+                "base_prob": 0.65,
+                "strategy": "Smart Delayed Retry",
+                "qualifies": True,
+            }),
         )
 
         risk_score = profile["base_risk"]

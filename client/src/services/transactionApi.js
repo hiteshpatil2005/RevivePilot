@@ -12,25 +12,34 @@ import { MOCK_TRANSACTIONS } from '../data/mockData';
 export const transactionApi = {
   /**
    * getTransactions(params)
-   * Returns: { transactions: [], total }
+   * Returns: { transactions: [], total, pagination }
    */
   async getTransactions(params = {}) {
     return withFallback(
       async () => {
         const res = await axiosInstance.get('/transactions', { params });
-        const items = res.data?.items || res.data?.transactions || (Array.isArray(res.data) ? res.data : []);
+        const items =
+          res.data?.items ||
+          res.data?.data?.items ||
+          res.data?.transactions ||
+          (Array.isArray(res.data) ? res.data : []);
+
+        const total = res.data?.pagination?.total ?? res.data?.total ?? items.length;
         const pagination = res.data?.pagination || {
           page: params.page || 1,
-          limit: params.limit || items.length,
-          total: items.length,
-          pages: 1,
+          limit: params.limit || (items.length || 20),
+          total: total,
+          pages: Math.ceil(total / (params.limit || 20)) || 1,
         };
-        return { transactions: items, total: pagination.total, pagination };
+        return { transactions: items, total, pagination };
       },
-      {
-        transactions: MOCK_TRANSACTIONS,
-        total: MOCK_TRANSACTIONS.length,
-        pagination: { page: 1, limit: 20, total: MOCK_TRANSACTIONS.length, pages: 1 },
+      () => {
+        const mockList = MOCK_TRANSACTIONS || [];
+        return {
+          transactions: mockList,
+          total: mockList.length,
+          pagination: { page: 1, limit: 20, total: mockList.length, pages: 1 },
+        };
       },
       'transactionApi.getTransactions'
     );
@@ -43,7 +52,8 @@ export const transactionApi = {
     return withFallback(
       () => axiosInstance.get(`/transactions/${id}`),
       async () => {
-        const t = MOCK_TRANSACTIONS.find(tx => tx.id === id);
+        const mockList = MOCK_TRANSACTIONS || [];
+        const t = mockList.find(tx => tx.id === id || tx.external_payment_id === id);
         if (!t) {
           const err = new Error('Transaction not found');
           err.response = { status: 404 };

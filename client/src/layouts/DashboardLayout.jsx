@@ -2,7 +2,6 @@ import { useState } from 'react';
 import { Outlet, useLocation } from 'react-router-dom';
 import Sidebar from '../components/layout/Sidebar';
 import TopNav from '../components/layout/TopNav';
-import DemoControls from '../components/realtime/DemoControls';
 import { ToastProvider } from '../context/ToastContext';
 import Toast from '../components/common/Toast';
 
@@ -62,9 +61,6 @@ export default function DashboardLayout() {
             <Outlet />
           </main>
         </div>
-
-        {/* Demo real-time event controls (dev only) */}
-        <DemoControls />
 
         {/* Global Toast notifications */}
         <Toast />

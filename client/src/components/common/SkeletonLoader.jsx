@@ -101,6 +101,6 @@ function MetricGrid({ count = 6 }) {
   );
 }
 
-const SkeletonLoader = { Line, Card, Table, Chart, MetricGrid };
-export { Line, Card, Table, Table as SkeletonTable, Chart, MetricGrid };
+const SkeletonLoader = { Line, Card, Table, Chart, MetricGrid, Metrics: MetricGrid };
+export { Line, Card, Table, Table as SkeletonTable, Chart, MetricGrid, MetricGrid as Metrics };
 export default SkeletonLoader;

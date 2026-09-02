@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, ArrowRight, AlertCircle, Mail, KeyRound, CheckCircle2, Zap } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Spinner from '../../components/common/Spinner';
 
@@ -10,16 +10,24 @@ export default function Login() {
 
   const [form, setForm] = useState({ email: '', password: '' });
   const [showPassword, setShowPassword] = useState(false);
-  const [rememberMe, setRememberMe] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [autofillSuccess, setAutofillSuccess] = useState(false);
 
-  const handleChange = e => {
-    setForm(f => ({ ...f, [e.target.name]: e.target.value }));
+  const handleChange = (e) => {
+    setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
     if (error) setError('');
   };
 
-  const handleSubmit = async e => {
+  const handleAutofill = () => {
+    setForm({ email: 'demo@revivepilot.ai', password: 'demo123' });
+    setAutofillSuccess(true);
+    setTimeout(() => setAutofillSuccess(false), 2000);
+    if (error) setError('');
+  };
+
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.email || !form.password) {
       setError('Please enter both email and password.');
@@ -32,98 +40,129 @@ export default function Login() {
     if (result.success) {
       navigate('/dashboard', { replace: true });
     } else {
-      setError(result.error || 'Login failed. Please try again.');
+      setError(result.error || 'Authentication failed. Please verify your credentials.');
     }
+  };
+
+  const inputStyle = {
+    width: '100%',
+    height: '42px',
+    padding: '0 12px 0 40px',
+    fontSize: '14px',
+    border: '1px solid #d0d4db',
+    borderRadius: '6px',
+    backgroundColor: '#ffffff',
+    color: '#0f172a',
+    outline: 'none',
+    transition: 'border-color 0.15s, box-shadow 0.15s',
+    fontFamily: 'inherit',
+  };
+
+  const labelStyle = {
+    display: 'block',
+    fontSize: '13px',
+    fontWeight: '500',
+    color: '#374151',
+    marginBottom: '6px',
   };
 
   return (
     <div>
       {/* Header */}
-      <div className="mb-8">
-        <h2
-          className="text-2xl font-bold mb-1.5"
-          style={{ color: 'var(--color-text-primary)' }}
-        >
-          Welcome back
-        </h2>
-        <p className="text-[14px]" style={{ color: 'var(--color-text-secondary)' }}>
-          Sign in to your RevivePilot merchant account
+      <div style={{ marginBottom: '28px' }}>
+        <h1 style={{ fontSize: '22px', fontWeight: '700', color: '#0f172a', letterSpacing: '-0.02em', marginBottom: '6px' }}>
+          Sign in to RevivePilot
+        </h1>
+        <p style={{ fontSize: '14px', color: '#6b7280' }}>
+          Enter your credentials to access the Recovery Cockpit.
         </p>
       </div>
 
-      {/* Demo hint */}
+      {/* Demo credentials bar */}
       <div
-        onClick={() => setForm({ email: 'demo@revivepilot.ai', password: 'demo123' })}
-        className="flex items-start gap-3 p-3.5 rounded-lg mb-6 cursor-pointer hover:opacity-90 transition-opacity"
-        style={{ backgroundColor: 'var(--color-brand-light)', border: '1px solid rgba(37,99,235,0.18)' }}
-        title="Click to autofill credentials"
+        onClick={handleAutofill}
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          padding: '10px 14px',
+          borderRadius: '6px',
+          border: '1px solid #bfdbfe',
+          backgroundColor: '#eff6ff',
+          cursor: 'pointer',
+          marginBottom: '24px',
+          transition: 'border-color 0.15s',
+        }}
       >
-        <div
-          className="w-1.5 h-1.5 rounded-full mt-1.5 flex-shrink-0"
-          style={{ backgroundColor: 'var(--color-brand)' }}
-        />
-        <div className="flex-1 flex items-center justify-between">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
+          <Zap size={15} color="#0c6ff9" />
           <div>
-            <p
-              className="text-[12px] font-semibold"
-              style={{ color: 'var(--color-brand)' }}
-            >
-              Demo credentials
+            <p style={{ fontSize: '11px', fontWeight: '700', color: '#1e3a8a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+              Razorpay Buildathon Demo
             </p>
-            <p className="text-[11px] mt-0.5 font-mono-data" style={{ color: 'var(--color-brand)' }}>
+            <p style={{ fontSize: '12px', color: '#1d4ed8', fontFamily: 'monospace', marginTop: '1px' }}>
               demo@revivepilot.ai · demo123
             </p>
           </div>
-          <span className="text-[11px] font-medium" style={{ color: 'var(--color-brand)' }}>
-            Autofill →
-          </span>
         </div>
+        <button
+          type="button"
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: '5px',
+            padding: '5px 12px',
+            borderRadius: '5px',
+            backgroundColor: '#0c6ff9',
+            color: '#ffffff',
+            fontSize: '12px',
+            fontWeight: '600',
+            border: 'none',
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+          }}
+        >
+          {autofillSuccess ? (
+            <><CheckCircle2 size={12} /><span>Filled</span></>
+          ) : (
+            <><span>Autofill</span><ArrowRight size={12} /></>
+          )}
+        </button>
       </div>
 
       {/* Form */}
-      <form onSubmit={handleSubmit} noValidate className="space-y-4">
+      <form onSubmit={handleSubmit} noValidate>
         {/* Email */}
-        <div>
-          <label
-            htmlFor="login-email"
-            className="block text-[13px] font-medium mb-1.5"
-            style={{ color: 'var(--color-text-primary)' }}
-          >
-            Business email
-          </label>
-          <input
-            id="login-email"
-            name="email"
-            type="email"
-            autoComplete="email"
-            placeholder="you@company.com"
-            value={form.email}
-            onChange={handleChange}
-            className="input-base"
-            aria-required="true"
-            disabled={loading}
-          />
+        <div style={{ marginBottom: '16px' }}>
+          <label htmlFor="login-email" style={labelStyle}>Business Email</label>
+          <div style={{ position: 'relative' }}>
+            <Mail size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }} />
+            <input
+              id="login-email"
+              name="email"
+              type="email"
+              autoComplete="email"
+              placeholder="admin@acme.com"
+              value={form.email}
+              onChange={handleChange}
+              disabled={loading}
+              style={inputStyle}
+              onFocus={e => { e.target.style.borderColor = '#0c6ff9'; e.target.style.boxShadow = '0 0 0 3px rgba(12,111,249,0.10)'; }}
+              onBlur={e => { e.target.style.borderColor = '#d0d4db'; e.target.style.boxShadow = 'none'; }}
+            />
+          </div>
         </div>
 
         {/* Password */}
-        <div>
-          <div className="flex items-center justify-between mb-1.5">
-            <label
-              htmlFor="login-password"
-              className="block text-[13px] font-medium"
-              style={{ color: 'var(--color-text-primary)' }}
-            >
-              Password
-            </label>
-            <button
-              type="button"
-              className="btn-link"
-              aria-label="Forgot password"
-            >
+        <div style={{ marginBottom: '16px' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '6px' }}>
+            <label htmlFor="login-password" style={{ ...labelStyle, marginBottom: 0 }}>Password</label>
+            <button type="button" style={{ fontSize: '12px', color: '#0c6ff9', fontWeight: '500', background: 'none', border: 'none', cursor: 'pointer', fontFamily: 'inherit' }}>
               Forgot password?
             </button>
           </div>
-          <div className="relative">
+          <div style={{ position: 'relative' }}>
+            <KeyRound size={15} style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', pointerEvents: 'none' }} />
             <input
               id="login-password"
               name="password"
@@ -132,15 +171,15 @@ export default function Login() {
               placeholder="••••••••"
               value={form.password}
               onChange={handleChange}
-              className="input-base pr-10"
-              aria-required="true"
               disabled={loading}
+              style={{ ...inputStyle, paddingRight: '40px' }}
+              onFocus={e => { e.target.style.borderColor = '#0c6ff9'; e.target.style.boxShadow = '0 0 0 3px rgba(12,111,249,0.10)'; }}
+              onBlur={e => { e.target.style.borderColor = '#d0d4db'; e.target.style.boxShadow = 'none'; }}
             />
             <button
               type="button"
               onClick={() => setShowPassword(v => !v)}
-              className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer"
-              style={{ color: 'var(--color-text-muted)' }}
+              style={{ position: 'absolute', right: '10px', top: '50%', transform: 'translateY(-50%)', color: '#9ca3af', background: 'none', border: 'none', cursor: 'pointer', padding: '4px' }}
               aria-label={showPassword ? 'Hide password' : 'Show password'}
             >
               {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
@@ -149,31 +188,37 @@ export default function Login() {
         </div>
 
         {/* Remember me */}
-        <div className="flex items-center gap-2">
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '20px' }}>
           <input
-            id="login-remember"
             type="checkbox"
+            id="remember-me"
             checked={rememberMe}
             onChange={e => setRememberMe(e.target.checked)}
-            className="w-4 h-4 rounded accent-[var(--color-brand)] cursor-pointer"
+            style={{ width: '15px', height: '15px', accentColor: '#0c6ff9', cursor: 'pointer' }}
           />
-          <label
-            htmlFor="login-remember"
-            className="text-[13px] cursor-pointer select-none"
-            style={{ color: 'var(--color-text-secondary)' }}
-          >
-            Remember me
+          <label htmlFor="remember-me" style={{ fontSize: '13px', color: '#6b7280', cursor: 'pointer' }}>
+            Keep me signed in
           </label>
         </div>
 
-        {/* Error message */}
+        {/* Error */}
         {error && (
           <div
-            className="flex items-center gap-2 p-3 rounded-lg text-[13px]"
-            style={{ backgroundColor: 'var(--color-danger-bg)', color: 'var(--color-danger)' }}
             role="alert"
+            style={{
+              display: 'flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '10px 12px',
+              borderRadius: '6px',
+              backgroundColor: '#fef2f2',
+              border: '1px solid #fecaca',
+              marginBottom: '16px',
+              fontSize: '13px',
+              color: '#dc2626',
+            }}
           >
-            <span>⚠</span>
+            <AlertCircle size={15} style={{ flexShrink: 0 }} />
             <span>{error}</span>
           </div>
         )}
@@ -181,40 +226,40 @@ export default function Login() {
         {/* Submit */}
         <button
           type="submit"
-          className="btn-primary mt-2"
           disabled={loading}
-          aria-busy={loading}
+          style={{
+            width: '100%',
+            height: '42px',
+            borderRadius: '6px',
+            backgroundColor: loading ? '#7ab3fc' : '#0c6ff9',
+            color: '#ffffff',
+            fontSize: '14px',
+            fontWeight: '600',
+            border: 'none',
+            cursor: loading ? 'not-allowed' : 'pointer',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '8px',
+            fontFamily: 'inherit',
+            transition: 'background-color 0.15s',
+          }}
+          onMouseEnter={e => { if (!loading) e.currentTarget.style.backgroundColor = '#0057d4'; }}
+          onMouseLeave={e => { if (!loading) e.currentTarget.style.backgroundColor = '#0c6ff9'; }}
         >
           {loading ? (
-            <>
-              <Spinner size={15} />
-              <span>Signing in…</span>
-            </>
+            <><Spinner size={16} /><span>Verifying...</span></>
           ) : (
-            <>
-              <span>Sign In</span>
-              <ArrowRight size={15} />
-            </>
+            <><span>Sign in</span><ArrowRight size={15} /></>
           )}
         </button>
       </form>
 
-      {/* Divider */}
-      <div className="flex items-center gap-3 my-6">
-        <hr className="divider flex-1" />
-        <span className="text-[11px]" style={{ color: 'var(--color-text-muted)' }}>or</span>
-        <hr className="divider flex-1" />
-      </div>
-
       {/* Register link */}
-      <p className="text-center text-[13px]" style={{ color: 'var(--color-text-secondary)' }}>
-        Don&apos;t have an account?{' '}
-        <Link
-          to="/register"
-          className="font-semibold"
-          style={{ color: 'var(--color-brand)' }}
-        >
-          Create merchant account
+      <p style={{ textAlign: 'center', fontSize: '13px', color: '#6b7280', marginTop: '20px' }}>
+        New to RevivePilot?{' '}
+        <Link to="/register" style={{ color: '#0c6ff9', fontWeight: '600', textDecoration: 'none' }}>
+          Create an account
         </Link>
       </p>
     </div>

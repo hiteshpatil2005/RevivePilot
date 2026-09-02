@@ -52,18 +52,25 @@ async def list_recovery_cases(
 
 @router.get("/cases/{case_id}", response_model=RecoveryCaseResponse)
 async def get_recovery_case(
-    case_id: uuid.UUID,
+    case_id: str,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
     """
     Retrieve full details and policy checks for a specific recovery case.
     """
-    return await RecoveryService.get_by_id(
-        session=session,
-        case_id=case_id,
-        merchant_id=current_user.merchant_id,
-    )
+    try:
+        case_uuid = uuid.UUID(case_id)
+        return await RecoveryService.get_by_id(
+            session=session,
+            case_id=case_uuid,
+            merchant_id=current_user.merchant_id,
+        )
+    except ValueError:
+        raise HTTPException(
+            status_code=404,
+            detail=f"Recovery case '{case_id}' not found in database",
+        )
 
 
 @router.post("/cases/{case_id}/retry", response_model=RecoveryCaseResponse)

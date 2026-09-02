@@ -59,8 +59,11 @@ axiosInstance.interceptors.response.use(
 export async function withFallback(apiCall, mockData, label = 'API') {
   try {
     const res = await apiCall();
-    // Backend returned data — return it
-    return res.data;
+    // Return res.data if Axios response, otherwise res itself
+    if (res && typeof res === 'object' && 'data' in res) {
+      return res.data;
+    }
+    return res;
   } catch (err) {
     const isNetworkError =
       err.code === 'ERR_NETWORK' ||
