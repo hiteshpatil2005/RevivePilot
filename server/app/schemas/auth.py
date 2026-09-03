@@ -54,3 +54,23 @@ class TokenResponse(BaseModel):
     user: UserResponse
 
     model_config = ConfigDict(populate_by_name=True)
+
+
+class CustomerSendOtpRequest(BaseModel):
+    email: EmailStr
+    name: Optional[str] = None
+
+
+class CustomerVerifyOtpRequest(BaseModel):
+    email: EmailStr
+    otp: str = Field(..., min_length=4, max_length=10)
+    name: Optional[str] = None
+
+
+class CustomerTokenResponse(BaseModel):
+    token: str
+    access_token: str
+    token_type: str = "bearer"
+    customer: dict
+
+    model_config = ConfigDict(populate_by_name=True)

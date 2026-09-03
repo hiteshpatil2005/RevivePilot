@@ -1,5 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback } from 'react';
-import { customerWsService } from '../services/websocket';
+import { customerSocket } from '../services/socket';
 import { useCustomerAuth } from './CustomerAuthContext';
 
 const CustomerRealtimeContext = createContext(null);
@@ -10,14 +10,17 @@ export function CustomerRealtimeProvider({ children }) {
   const [notifications, setNotifications] = useState([]);
 
   useEffect(() => {
-    customerWsService.connect();
-
-    const unsubscribe = customerWsService.subscribe((event) => {
+    const unsubscribe = customerSocket.subscribe((event) => {
       const type = event.event_type || event.type || '';
-      const data = event.data || {};
+      const data = event.data || event || {};
 
-      // 1. Recovery Case Updated / Strategy Selected -> Trigger WhatsApp Recovery Notification!
-      if (type.includes('CASE_UPDATED') || type.includes('STRATEGY_SELECTED')) {
+      // 1. Recovery Case Updated / Strategy Selected -> Trigger Recovery Notification
+      if (
+        type.includes('CASE_UPDATED') ||
+        type.includes('STRATEGY_SELECTED') ||
+        type === 'recovery.action.completed' ||
+        type === 'recovery.case.created'
+      ) {
         const caseId = event.case_id || data.case_id || 'RC-Live';
         const notice = {
           id: `notif_${Date.now()}`,
@@ -35,18 +38,17 @@ export function CustomerRealtimeProvider({ children }) {
         setNotifications((prev) => [notice, ...prev]);
       }
 
-      // 2. Recovery Success event -> Update order status to RECOVERED!
-      if (type.includes('RECOVERY_SUCCESS')) {
-        const caseId = event.case_id || data.caseId;
+      // 2. Recovery Success event -> Update order status to RECOVERED
+      if (type.includes('RECOVERY_SUCCESS') || type === 'payment.recovered') {
+        const caseId = event.case_id || data.caseId || data.case_id;
         if (caseId) {
-          markOrderRecovered(caseId, data.recoveredAmount || data.amount);
+          markOrderRecovered(caseId, data.recoveredAmount || data.recovered_amount || data.amount);
         }
       }
     });
 
     return () => {
       unsubscribe();
-      customerWsService.disconnect();
     };
   }, [markOrderRecovered]);
 

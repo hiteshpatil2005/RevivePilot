@@ -155,3 +155,11 @@ async def root():
         "docs": "/docs",
         "api": "/api",
     }
+
+
+# ── Socket.IO Realtime Server Mount ──────────────────────────────────────────
+import socketio
+from app.websocket.socketio_server import sio
+
+# Mount Socket.IO directly onto FastAPI so app remains standard FastAPI instance
+app.mount("/socket.io", socketio.ASGIApp(sio, socketio_path=""))

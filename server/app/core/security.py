@@ -42,6 +42,35 @@ def create_access_token(
     return encoded_jwt
 
 
+def create_customer_token(
+    customer_id: Union[str, Any],
+    merchant_id: Union[str, Any],
+    email: str,
+    session_id: Optional[str] = None,
+    expires_delta: Optional[timedelta] = None,
+) -> str:
+    """Create a signed JWT access token strictly scoped for customer sessions."""
+    import uuid
+    if expires_delta:
+        expire = datetime.now(timezone.utc) + expires_delta
+    else:
+        expire = datetime.now(timezone.utc) + timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
+
+    to_encode = {
+        "exp": expire,
+        "sub": str(customer_id),
+        "customer_id": str(customer_id),
+        "merchant_id": str(merchant_id),
+        "email": email.lower().strip(),
+        "session_id": session_id or str(uuid.uuid4()),
+        "role": "customer",
+        "iat": datetime.now(timezone.utc),
+    }
+
+    encoded_jwt = jwt.encode(to_encode, settings.JWT_SECRET_KEY, algorithm=settings.JWT_ALGORITHM)
+    return encoded_jwt
+
+
 def decode_access_token(token: str) -> Optional[dict]:
     """Decode and validate a JWT access token."""
     try:

@@ -1,17 +1,70 @@
 import uuid
 from typing import Optional
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Body
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database.session import get_db
 from app.api.deps import get_current_user
 from app.models.user import User
-from app.schemas.customer import CustomerResponse, CustomerListResponse
+from app.schemas.customer import (
+    CustomerResponse,
+    CustomerListResponse,
+    CustomerPortalRegisterRequest,
+    CustomerPortalVerifyRequest,
+)
 from app.services.customer_service import CustomerService
 
 router = APIRouter(prefix="/customers", tags=["Customers"])
 
 
+# ── Customer Portal Authentication & Registration Endpoints ──────────────────
+@router.post("/portal/register")
+async def register_portal_customer(
+    payload: CustomerPortalRegisterRequest,
+    session: AsyncSession = Depends(get_db),
+):
+    """
+    Public portal registration for Acme Cloud Store users.
+    Dispatches 6-digit OTP verification email and assigns unique payment instruments.
+    """
+    return await CustomerService.register_portal_customer(
+        session=session,
+        name=payload.name,
+        email=payload.email,
+        phone=payload.phone,
+    )
+
+
+@router.post("/portal/verify", response_model=CustomerResponse)
+async def verify_portal_customer(
+    payload: CustomerPortalVerifyRequest,
+    session: AsyncSession = Depends(get_db),
+):
+    """
+    Verifies 6-digit OTP code sent to user email and activates dynamic customer account.
+    """
+    return await CustomerService.verify_portal_customer(
+        session=session,
+        email=payload.email,
+        code=payload.code,
+    )
+
+
+@router.get("/portal/me", response_model=CustomerResponse)
+async def get_portal_customer(
+    email: str = Query(..., description="Customer email address"),
+    session: AsyncSession = Depends(get_db),
+):
+    """
+    Fetches active customer profile with unique assigned payment instruments.
+    """
+    return await CustomerService.get_portal_customer(
+        session=session,
+        email=email,
+    )
+
+
+# ── Merchant Admin Scoped Endpoints ──────────────────────────────────────────
 @router.get("", response_model=CustomerListResponse)
 async def list_customers(
     page: int = Query(1, ge=1),

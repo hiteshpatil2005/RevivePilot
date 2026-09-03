@@ -3,12 +3,13 @@ import json
 from typing import Dict, List, Set, Any
 from fastapi import WebSocket
 from app.core.logging import logger
+from app.websocket.socketio_server import emit_to_merchant, emit_to_customer
 
 
 class ConnectionManager:
     """
-    WebSocket Connection Manager scoping connected clients by merchant ID.
-    Enables targeted merchant notifications and broadcasts.
+    Dual WebSocket & Socket.IO Connection Manager scoping connected clients strictly by merchant ID.
+    Enforces tenant isolation across all realtime gateways.
     """
 
     def __init__(self):
@@ -33,7 +34,18 @@ class ConnectionManager:
         await websocket.send_text(message)
 
     async def send_to_merchant(self, merchant_id: uuid.UUID, data: Any):
-        """Send message only to active connections for a specific merchant."""
+        """Send message strictly to active WebSocket connections and Socket.IO room for this merchant."""
+        parsed_data = json.loads(data) if isinstance(data, str) else data
+        event_type = parsed_data.get("type", "EVENT") if isinstance(parsed_data, dict) else "EVENT"
+        payload = parsed_data.get("data", parsed_data) if isinstance(parsed_data, dict) else {"payload": parsed_data}
+
+        # Emit to Socket.IO merchant-scoped room
+        await emit_to_merchant(
+            merchant_id=str(merchant_id),
+            event_type=event_type,
+            data=payload,
+        )
+
         if merchant_id in self.active_connections:
             message = json.dumps(data) if not isinstance(data, str) else data
             dead_connections = []
@@ -48,11 +60,22 @@ class ConnectionManager:
             for dead in dead_connections:
                 self.active_connections[merchant_id].discard(dead)
 
+    async def send_to_customer(self, customer_id: uuid.UUID, data: Any):
+        """Send message strictly to the authenticated customer's Socket.IO room."""
+        parsed_data = json.loads(data) if isinstance(data, str) else data
+        event_type = parsed_data.get("type", "EVENT") if isinstance(parsed_data, dict) else "EVENT"
+        payload = parsed_data.get("data", parsed_data) if isinstance(parsed_data, dict) else {"payload": parsed_data}
+
+        await emit_to_customer(
+            customer_id=str(customer_id),
+            event_type=event_type,
+            data=payload,
+        )
+
     async def broadcast(self, data: Any):
-        """Broadcast message to all connected clients."""
-        message = json.dumps(data) if not isinstance(data, str) else data
+        """Broadcasts only to merchants, preserving tenant isolation."""
         for merchant_id in list(self.active_connections.keys()):
-            await self.send_to_merchant(merchant_id, message)
+            await self.send_to_merchant(merchant_id, data)
 
 
 ws_manager = ConnectionManager()

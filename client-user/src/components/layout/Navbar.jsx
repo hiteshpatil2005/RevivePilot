@@ -2,17 +2,20 @@ import { useState } from 'react';
 import { Link, useLocation, useNavigate } from 'react-router-dom';
 import {
   Cloud, Search, ExternalLink, ChevronDown, Plus, Check,
-  Activity, ShieldCheck, User, Layers, Receipt, CreditCard
+  Activity, ShieldCheck, User, Layers, Receipt, CreditCard,
+  Mail, LogOut, Sparkles, Smartphone, Building2, LogIn, UserPlus
 } from 'lucide-react';
 import { useCustomerAuth } from '../../context/CustomerAuthContext';
-import { useCustomerRealtime } from '../../context/CustomerRealtimeContext';
+import CustomerRegisterModal from '../auth/CustomerRegisterModal';
 
-export default function Navbar({ onOpenNewCustomerModal }) {
+export default function Navbar() {
   const location = useLocation();
   const navigate = useNavigate();
-  const { customers, currentCustomer, switchCustomer, orders } = useCustomerAuth();
+  const { currentCustomer, logoutCustomer, orders } = useCustomerAuth();
   const [dropdownOpen, setDropdownOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
+  const [registerModalOpen, setRegisterModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
 
   const pendingCount = orders.filter((o) => o.status === 'FAILED').length;
 
@@ -63,7 +66,7 @@ export default function Navbar({ onOpenNewCustomerModal }) {
           {/* Live Status */}
           <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded bg-[#00173d] text-[11px] text-emerald-400 border border-blue-900/50">
             <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-            <span className="font-medium text-slate-200">Live Stream</span>
+            <span className="font-medium text-slate-200">Socket.IO Live</span>
           </div>
 
           {/* RevivePilot Cockpit Link */}
@@ -79,81 +82,116 @@ export default function Navbar({ onOpenNewCustomerModal }) {
             <ExternalLink size={11} className="opacity-70" />
           </a>
 
-          {/* Customer Directory / Identity Switcher */}
-          <div className="relative">
-            <button
-              type="button"
-              onClick={() => setDropdownOpen(!dropdownOpen)}
-              className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded hover:bg-[#003366] text-left text-xs transition-colors cursor-pointer border border-transparent hover:border-blue-700/50"
-            >
-              <div className="w-6 h-6 rounded bg-[#0078d4] text-white font-bold flex items-center justify-center text-[10px]">
-                {currentCustomer.name.slice(0, 2).toUpperCase()}
-              </div>
-              <div className="hidden sm:block text-left leading-tight">
-                <p className="font-semibold text-white text-[12px]">{currentCustomer.name}</p>
-                <p className="text-[10px] text-blue-200">{currentCustomer.tier}</p>
-              </div>
-              <ChevronDown size={13} className="text-blue-200" />
-            </button>
-
-            {dropdownOpen && (
-              <div
-                className="absolute right-0 mt-1.5 w-72 bg-white text-slate-900 rounded shadow-xl border border-slate-200 py-1 z-50 animate-fade-in"
-                onMouseLeave={() => setDropdownOpen(false)}
+          {/* Real Customer Identity / Register Button */}
+          {currentCustomer ? (
+            <div className="relative">
+              <button
+                type="button"
+                onClick={() => setDropdownOpen(!dropdownOpen)}
+                className="flex items-center gap-2 pl-1.5 pr-2.5 py-1 rounded hover:bg-[#003366] text-left text-xs transition-colors cursor-pointer border border-transparent hover:border-blue-700/50"
               >
-                <div className="px-3 py-2 border-b border-slate-100 bg-slate-50">
-                  <p className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider">
-                    Customer Identity
-                  </p>
-                  <p className="text-xs text-slate-700 font-medium">{currentCustomer.email}</p>
-                  <p className="text-[11px] text-slate-500">
-                    Wallet: <strong className="text-slate-900 font-mono-code">₹{currentCustomer.balance.toLocaleString('en-IN')}</strong>
+                <div className="w-6 h-6 rounded bg-[#0078d4] text-white font-bold flex items-center justify-center text-[10px]">
+                  {(currentCustomer.name || 'CU').slice(0, 2).toUpperCase()}
+                </div>
+                <div className="hidden sm:block text-left leading-tight">
+                  <p className="font-semibold text-white text-[12px]">{currentCustomer.name}</p>
+                  <p className="text-[10px] text-emerald-300 flex items-center gap-1">
+                    <span className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                    Verified User
                   </p>
                 </div>
+                <ChevronDown size={13} className="text-blue-200" />
+              </button>
 
-                <div className="max-h-60 overflow-y-auto py-1">
-                  {customers.map((c) => (
+              {dropdownOpen && (
+                <div
+                  className="absolute right-0 mt-1.5 w-80 bg-white text-slate-900 rounded-lg shadow-xl border border-slate-200 py-1 z-50 animate-fade-in"
+                  onMouseLeave={() => setDropdownOpen(false)}
+                >
+                  <div className="px-3.5 py-2.5 border-b border-slate-100 bg-slate-50 space-y-1">
+                    <div className="flex items-center justify-between">
+                      <p className="text-[11px] font-bold text-slate-500 uppercase tracking-wider">
+                        Active Verified Profile
+                      </p>
+                      <span className="px-1.5 py-0.2 rounded text-[10px] bg-emerald-100 text-emerald-800 font-semibold">
+                        Email OTP Verified
+                      </span>
+                    </div>
+                    <p className="text-xs font-bold text-slate-900">{currentCustomer.name}</p>
+                    <p className="text-[11px] text-slate-600 truncate">{currentCustomer.email}</p>
+                    <p className="text-[11px] text-slate-500">
+                      Balance: <strong className="text-slate-900 font-mono">₹{(currentCustomer.balance || 150000).toLocaleString('en-IN')}.00</strong>
+                    </p>
+                  </div>
+
+                  {/* Unique Dynamic Instruments Summary */}
+                  <div className="p-3 bg-white space-y-2 text-xs border-b border-slate-100">
+                    <p className="text-[10px] font-bold uppercase text-slate-400">Assigned Test Instruments</p>
+                    <div className="space-y-1.5 text-[11px]">
+                      <div className="flex items-center justify-between text-slate-700">
+                        <span className="flex items-center gap-1">
+                          <CreditCard size={12} className="text-[#0078d4]" />
+                          Card:
+                        </span>
+                        <span className="font-mono font-semibold text-slate-900">
+                          {currentCustomer.cardNumber || currentCustomer.card_number || '4532 •••• •••• 4242'}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-slate-700">
+                        <span className="flex items-center gap-1">
+                          <Smartphone size={12} className="text-purple-600" />
+                          UPI VPA:
+                        </span>
+                        <span className="font-mono text-purple-700 font-medium">
+                          {currentCustomer.upiVpa || currentCustomer.upi_vpa || 'user@okhdfcbank'}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="p-2">
                     <button
-                      key={c.id}
                       type="button"
                       onClick={() => {
-                        switchCustomer(c.id);
+                        logoutCustomer();
                         setDropdownOpen(false);
                       }}
-                      className={`w-full px-3 py-2 text-left flex items-center justify-between text-xs hover:bg-slate-50 transition-colors cursor-pointer ${
-                        c.id === currentCustomer.id ? 'bg-blue-50 font-semibold text-[#0078d4]' : 'text-slate-700'
-                      }`}
+                      className="w-full text-left text-xs py-1.5 px-2 text-red-600 hover:bg-red-50 rounded flex items-center gap-1.5 cursor-pointer font-medium"
                     >
-                      <div className="flex items-center gap-2">
-                        <div className="w-5 h-5 rounded bg-slate-200 text-slate-700 flex items-center justify-center text-[10px] font-bold">
-                          {c.name.slice(0, 2).toUpperCase()}
-                        </div>
-                        <div>
-                          <p>{c.name}</p>
-                          <p className="text-[10px] text-slate-400">{c.tier}</p>
-                        </div>
-                      </div>
-                      {c.id === currentCustomer.id && <Check size={14} className="text-[#0078d4]" />}
+                      <LogOut size={13} />
+                      <span>Sign Out / Switch User</span>
                     </button>
-                  ))}
+                  </div>
                 </div>
+              )}
+            </div>
+          ) : (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('login');
+                  setRegisterModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#003366] hover:bg-[#004080] text-blue-100 hover:text-white rounded text-xs font-semibold border border-blue-400/40 transition-colors cursor-pointer shadow-xs"
+              >
+                <LogIn size={13} className="text-blue-300" />
+                <span>Sign In</span>
+              </button>
 
-                <div className="pt-1 border-t border-slate-100 px-2">
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setDropdownOpen(false);
-                      if (onOpenNewCustomerModal) onOpenNewCustomerModal();
-                    }}
-                    className="w-full text-left text-xs py-1.5 px-2 text-[#0078d4] font-medium hover:bg-blue-50 rounded flex items-center gap-1.5 cursor-pointer"
-                  >
-                    <Plus size={13} />
-                    <span>Create Customer Profile</span>
-                  </button>
-                </div>
-              </div>
-            )}
-          </div>
+              <button
+                type="button"
+                onClick={() => {
+                  setAuthMode('register');
+                  setRegisterModalOpen(true);
+                }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-[#0078d4] hover:bg-[#006cbd] text-white rounded text-xs font-bold transition-colors cursor-pointer shadow-xs"
+              >
+                <UserPlus size={13} />
+                <span>Create Account</span>
+              </button>
+            </div>
+          )}
         </div>
       </div>
 
@@ -208,6 +246,13 @@ export default function Navbar({ onOpenNewCustomerModal }) {
           <span>Region: <strong className="text-slate-700 font-medium">India Central (Mumbai)</strong></span>
         </div>
       </div>
+
+      {/* Registration & OTP Modal */}
+      <CustomerRegisterModal
+        isOpen={registerModalOpen}
+        onClose={() => setRegisterModalOpen(false)}
+        initialMode={authMode}
+      />
     </header>
   );
 }

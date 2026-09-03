@@ -10,7 +10,7 @@ import { useCustomerAuth } from '../context/CustomerAuthContext';
 export default function RecoveryPay() {
   const { caseId } = useParams();
   const navigate = useNavigate();
-  const { currentCustomer, markOrderRecovered } = useCustomerAuth();
+  const { currentCustomer, markOrderRecovered, deductBalance, setCustomerBalance } = useCustomerAuth();
 
   const [method, setMethod] = useState('upi');
   const [vpa, setVpa] = useState(currentCustomer?.upiId || 'rahul.s@okhdfcbank');
@@ -24,13 +24,17 @@ export default function RecoveryPay() {
     await new Promise((resolve) => setTimeout(resolve, 1200));
 
     try {
-      await userApi.settleRecoveryLink({
+      const res = await userApi.settleRecoveryLink({
         caseId: caseId || 'RC-10291',
         amount,
         paymentMethod: method.toUpperCase(),
       });
 
       markOrderRecovered(caseId || 'RC-10291', amount);
+      if (deductBalance) deductBalance(amount);
+      if (res?.remaining_balance !== undefined && setCustomerBalance) {
+        setCustomerBalance(res.remaining_balance);
+      }
       setSuccess(true);
     } catch (err) {
       console.error('Settlement error:', err);

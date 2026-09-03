@@ -2,57 +2,72 @@ import { useState, useMemo } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import {
   RefreshCw, Search, ArrowRight, ShieldCheck, Download,
-  CheckCircle2, AlertCircle, Clock, ExternalLink, Plus, Filter
+  CheckCircle2, AlertCircle, Clock, ExternalLink, Plus, Filter,
+  LogIn, Receipt
 } from 'lucide-react';
 import { useCustomerAuth } from '../context/CustomerAuthContext';
 
 export default function Orders() {
-  const { currentCustomer, orders } = useCustomerAuth();
+  const { currentCustomer, orders = [], refreshOrders, setIsAuthModalOpen } = useCustomerAuth();
   const [searchParams, setSearchParams] = useSearchParams();
   const [statusFilter, setStatusFilter] = useState('ALL');
   const [searchQuery, setSearchQuery] = useState(searchParams.get('q') || '');
   const [isRefreshing, setIsRefreshing] = useState(false);
 
+  const safeOrders = useMemo(() => {
+    return Array.isArray(orders) ? orders : [];
+  }, [orders]);
+
   const filteredOrders = useMemo(() => {
-    return orders.filter((order) => {
+    return safeOrders.filter((order) => {
+      const status = (order.status || '').toUpperCase();
       // Status filter
-      if (statusFilter === 'PAID' && order.status !== 'PAID' && order.status !== 'SUCCESS') {
+      if (statusFilter === 'PAID' && status !== 'PAID' && status !== 'SUCCESS') {
         return false;
       }
-      if (statusFilter === 'FAILED' && order.status !== 'FAILED') {
+      if (statusFilter === 'FAILED' && status !== 'FAILED') {
         return false;
       }
-      if (statusFilter === 'RECOVERED' && order.status !== 'RECOVERED') {
+      if (statusFilter === 'RECOVERED' && status !== 'RECOVERED') {
         return false;
       }
       // Text search
       if (searchQuery.trim()) {
         const q = searchQuery.toLowerCase();
-        const matchName = order.itemName?.toLowerCase().includes(q);
-        const matchId = order.id?.toLowerCase().includes(q);
-        const matchReason = order.failureReason?.toLowerCase().includes(q);
+        const matchName = (order.itemName || order.item_name || '').toLowerCase().includes(q);
+        const matchId = (order.id || order.payment_id || order.paymentId || '').toLowerCase().includes(q);
+        const matchReason = (order.failureReason || order.failure_reason || '').toLowerCase().includes(q);
         if (!matchName && !matchId && !matchReason) return false;
       }
       return true;
     });
-  }, [orders, statusFilter, searchQuery]);
+  }, [safeOrders, statusFilter, searchQuery]);
 
   const stats = useMemo(() => {
     let total = 0;
     let recovered = 0;
     let failed = 0;
-    orders.forEach((o) => {
-      total += o.amount || 0;
-      if (o.status === 'RECOVERED') recovered += o.amount || 0;
-      if (o.status === 'FAILED') failed += o.amount || 0;
+    safeOrders.forEach((o) => {
+      const amt = Number(o.amount || 0);
+      total += amt;
+      const st = (o.status || '').toUpperCase();
+      if (st === 'RECOVERED') recovered += amt;
+      if (st === 'FAILED') failed += amt;
     });
-    return { total, recovered, failed, count: orders.length };
-  }, [orders]);
+    return { total, recovered, failed, count: safeOrders.length };
+  }, [safeOrders]);
 
-  const handleRefresh = () => {
+  const handleRefresh = async () => {
     setIsRefreshing(true);
+    if (refreshOrders) {
+      await refreshOrders();
+    }
     setTimeout(() => setIsRefreshing(false), 500);
   };
+
+  const customerName = currentCustomer?.name || 'Verified Customer';
+  const customerEmail = currentCustomer?.email || 'guest@example.com';
+  const customerBalance = Number(currentCustomer?.balance || 150000);
 
   return (
     <div className="space-y-4 pb-12">
@@ -68,14 +83,26 @@ export default function Orders() {
 
         <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
-            <h1 className="text-xl font-bold text-slate-900 tracking-tight">Invoices</h1>
+            <h1 className="text-xl font-bold text-slate-900 tracking-tight">Invoices &amp; Orders</h1>
             <p className="text-xs text-slate-500 mt-0.5">
-              Customer Account: <strong className="text-slate-800">{currentCustomer.name}</strong> ({currentCustomer.email})
+              Customer Account:{' '}
+              <strong className="text-slate-800">{customerName}</strong>{' '}
+              <span className="text-slate-400">({customerEmail})</span>
             </p>
           </div>
 
           <div className="flex items-center gap-2">
-            <Link to="/" className="btn-azure text-xs">
+            {!currentCustomer && (
+              <button
+                type="button"
+                onClick={() => setIsAuthModalOpen && setIsAuthModalOpen(true)}
+                className="btn-azure-secondary text-xs flex items-center gap-1.5"
+              >
+                <LogIn size={13} />
+                <span>Sign In to Sync</span>
+              </button>
+            )}
+            <Link to="/" className="btn-azure text-xs flex items-center gap-1.5">
               <Plus size={14} />
               <span>Browse Products &amp; Catalog</span>
             </Link>
@@ -85,7 +112,24 @@ export default function Orders() {
 
       {/* ── Main Container ── */}
       <div className="max-w-7xl mx-auto px-4 sm:px-6 space-y-4">
-        {/* ── Azure Unified Cost & Recovery Ribbon (Single continuous strip, zero floating cards) ── */}
+        {/* Unauthenticated notice if user is browsing orders logged out */}
+        {!currentCustomer && (
+          <div className="bg-amber-50 border border-amber-200 rounded p-3 flex items-center justify-between text-xs text-amber-900">
+            <div className="flex items-center gap-2">
+              <span className="w-2 h-2 rounded-full bg-amber-500" />
+              <span>You are viewing local session transactions. Sign in to view your cloud database invoices.</span>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAuthModalOpen && setIsAuthModalOpen(true)}
+              className="text-[#0078d4] font-semibold hover:underline cursor-pointer"
+            >
+              Sign In Now →
+            </button>
+          </div>
+        )}
+
+        {/* ── Azure Unified Cost & Recovery Ribbon (Single continuous strip) ── */}
         <div className="bg-white border border-slate-200 rounded shadow-2xs divide-y sm:divide-y-0 sm:divide-x divide-slate-200 grid grid-cols-2 md:grid-cols-4">
           <div className="p-3.5 sm:px-5">
             <span className="text-[11px] font-semibold text-slate-500 uppercase tracking-wider block">
@@ -129,11 +173,11 @@ export default function Orders() {
             </span>
             <div className="mt-1">
               <span className="text-xl font-bold text-[#0078d4] font-mono-code">
-                ₹{currentCustomer.balance.toLocaleString('en-IN')}.00
+                ₹{customerBalance.toLocaleString('en-IN')}.00
               </span>
             </div>
             <span className="text-[11px] text-blue-600 font-medium mt-0.5 block">
-              {currentCustomer.tier.includes('Tier') ? currentCustomer.tier : `${currentCustomer.tier} Tier`}
+              Enterprise Verified Rail
             </span>
           </div>
         </div>
@@ -213,33 +257,44 @@ export default function Orders() {
                     </td>
                   </tr>
                 ) : (
-                  filteredOrders.map((order) => {
-                    const isPaid = order.status === 'PAID' || order.status === 'SUCCESS';
-                    const isRecovered = order.status === 'RECOVERED';
-                    const isFailed = order.status === 'FAILED';
+                  filteredOrders.map((order, idx) => {
+                    const status = (order.status || '').toUpperCase();
+                    const isPaid = status === 'PAID' || status === 'SUCCESS';
+                    const isRecovered = status === 'RECOVERED';
+                    const isFailed = status === 'FAILED';
+
+                    const rawDate = order.date || order.created_at || Date.now();
+                    const formattedDate = !isNaN(new Date(rawDate).getTime())
+                      ? new Date(rawDate).toLocaleDateString()
+                      : 'Recent';
+
+                    const amountVal = Number(order.amount || 0);
+                    const orderId = order.id || order.payment_id || order.paymentId || `INV-2026-${idx + 100}`;
+                    const itemName = order.itemName || order.item_name || 'Acme Cloud Compute Service';
+                    const caseId = order.caseId || order.case_id || order.id;
 
                     return (
-                      <tr key={order.id} className="transition-colors">
+                      <tr key={orderId + idx} className="transition-colors">
                         {/* Invoice ID */}
                         <td className="font-mono-code text-xs font-semibold text-[#0078d4]">
-                          {order.id}
+                          {orderId}
                         </td>
 
                         {/* Service / Item */}
                         <td>
-                          <p className="font-semibold text-slate-900 leading-tight">{order.itemName}</p>
-                          <p className="text-[11px] text-slate-500 mt-0.5">Billed to {currentCustomer.name}</p>
+                          <p className="font-semibold text-slate-900 leading-tight">{itemName}</p>
+                          <p className="text-[11px] text-slate-500 mt-0.5">Billed to {customerName}</p>
                         </td>
 
                         {/* Date & Rail */}
                         <td>
-                          <p className="text-slate-700 text-xs">{new Date(order.date).toLocaleDateString()}</p>
-                          <p className="text-[11px] text-slate-400 mt-0.5">{order.paymentMethod || 'Razorpay Standard'}</p>
+                          <p className="text-slate-700 text-xs">{formattedDate}</p>
+                          <p className="text-[11px] text-slate-400 mt-0.5">{order.paymentMethod || order.payment_method || 'Razorpay Standard'}</p>
                         </td>
 
                         {/* Amount */}
                         <td className="font-mono-code font-bold text-slate-900 text-xs">
-                          ₹{order.amount.toLocaleString('en-IN')}.00
+                          ₹{amountVal.toLocaleString('en-IN')}.00
                         </td>
 
                         {/* Gateway Status */}
@@ -264,9 +319,9 @@ export default function Orders() {
                                 <span className="w-1.5 h-1.5 rounded-full bg-red-600" />
                                 <span>Failed</span>
                               </span>
-                              {order.failureReason && (
+                              {(order.failureReason || order.failure_reason) && (
                                 <p className="text-[10px] text-red-600 font-mono-code font-semibold pl-2">
-                                  {order.failureReason}
+                                  {order.failureReason || order.failure_reason}
                                 </p>
                               )}
                             </div>
@@ -277,7 +332,7 @@ export default function Orders() {
                         <td style={{ minWidth: '160px', textAlign: 'right' }}>
                           {isFailed ? (
                             <Link
-                              to={`/pay/${order.caseId || order.id}`}
+                              to={`/pay/${caseId}`}
                               className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap px-3 py-1.5 bg-[#0078d4] hover:bg-[#106ebe] text-white text-xs font-semibold rounded shadow-2xs transition-colors"
                             >
                               <span>Pay Recovery Link</span>
@@ -297,7 +352,7 @@ export default function Orders() {
 
           {/* Table Footer */}
           <div className="px-4 py-2.5 bg-slate-50 border-t border-slate-200 text-xs text-slate-500 flex items-center justify-between">
-            <span>Showing {filteredOrders.length} of {orders.length} transactions</span>
+            <span>Showing {filteredOrders.length} of {safeOrders.length} transactions</span>
             <span className="text-[11px] text-slate-400">Razorpay Payment Engine v2.4</span>
           </div>
         </div>

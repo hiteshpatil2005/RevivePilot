@@ -1,11 +1,12 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Link } from 'react-router-dom';
 import {
   Layers, Server, Cpu, Zap, CreditCard, Check, ArrowRight,
-  ShieldCheck, Info, Sparkles, Filter
+  ShieldCheck, Info, Sparkles, Filter, LogIn, Lock
 } from 'lucide-react';
 import { STORE_CATALOG } from '../data/mockUserData';
 import RazorpayModal from '../components/checkout/RazorpayModal';
+import CustomerRegisterModal from '../components/auth/CustomerRegisterModal';
 import { useCustomerAuth } from '../context/CustomerAuthContext';
 
 export default function Store() {
@@ -13,14 +14,42 @@ export default function Store() {
   const [billingCycle, setBillingCycle] = useState('monthly');
   const [activeCategory, setActiveCategory] = useState('all');
   const [selectedProduct, setSelectedProduct] = useState(null);
+  const [pendingProduct, setPendingProduct] = useState(null);
   const [modalOpen, setModalOpen] = useState(false);
+  const [authModalOpen, setAuthModalOpen] = useState(false);
+  const [authMode, setAuthMode] = useState('login');
+  const [authNotice, setAuthNotice] = useState('');
 
   const filteredProducts = STORE_CATALOG.filter((item) => {
     if (activeCategory === 'all') return true;
     return item.category === activeCategory;
   });
 
+  // Automatically resume checkout once the customer finishes authenticating
+  useEffect(() => {
+    if (currentCustomer && pendingProduct) {
+      const prod = pendingProduct;
+      setPendingProduct(null);
+      setAuthNotice('');
+      const calculatedAmount = (billingCycle === 'annual' ? prod.annualAmount : prod.monthlyAmount) ?? prod.amount ?? 25000;
+      setSelectedProduct({
+        ...prod,
+        amount: calculatedAmount,
+        billingCycle,
+      });
+      setModalOpen(true);
+    }
+  }, [currentCustomer, pendingProduct, billingCycle]);
+
   const handleOpenCheckout = (product) => {
+    if (!currentCustomer) {
+      setPendingProduct(product);
+      setAuthMode('login');
+      setAuthNotice(`Authentication Required: Please sign in or create an account to purchase "${product.name}".`);
+      setAuthModalOpen(true);
+      return;
+    }
+
     const calculatedAmount = (billingCycle === 'annual' ? product.annualAmount : product.monthlyAmount) ?? product.amount ?? 25000;
     setSelectedProduct({
       ...product,
@@ -192,6 +221,13 @@ export default function Store() {
         item={selectedProduct}
         isOpen={modalOpen}
         onClose={() => setModalOpen(false)}
+      />
+
+      {/* Customer Authentication Required Modal */}
+      <CustomerRegisterModal
+        isOpen={authModalOpen}
+        onClose={() => setAuthModalOpen(false)}
+        initialMode={authMode}
       />
     </div>
   );

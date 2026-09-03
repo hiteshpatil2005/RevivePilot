@@ -51,5 +51,29 @@ class Settings(BaseSettings):
     # AI
     GEMINI_API_KEY: str = "mock_gemini_key"
 
+    # SMTP Mailer Settings
+    SMTP_HOST: str = "smtp.gmail.com"
+    SMTP_PORT: int = 587
+    SMTP_USER: str = ""
+    SMTP_APP_PASSWORD: str = ""
+    SMTP_PASSWORD: str = ""
+    SMTP_FROM: str = ""
+    SMTP_FROM_EMAIL: str = ""
+    SMTP_FROM_NAME: str = "RevivePilot Recovery"
+    SMTP_TLS: bool = True
+
+    # OTP Security Parameters
+    OTP_EXPIRE_SECONDS: int = 300      # 5 minutes expiration
+    OTP_MAX_ATTEMPTS: int = 5          # Maximum verification tries before invalidation
+    OTP_COOLDOWN_SECONDS: int = 60     # Minimum time between resends
+
+    @property
+    def resolved_smtp_password(self) -> str:
+        return self.SMTP_APP_PASSWORD or self.SMTP_PASSWORD
+
+    @property
+    def resolved_smtp_from(self) -> str:
+        return self.SMTP_FROM or self.SMTP_FROM_EMAIL or self.SMTP_USER
+
 
 settings = Settings()

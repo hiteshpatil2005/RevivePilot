@@ -71,10 +71,16 @@ class CustomerWebSocketService {
       this._ws = null;
       ws.onerror = null;
       ws.onclose = null;
-      if (ws.readyState === WebSocket.OPEN || ws.readyState === WebSocket.CONNECTING) {
+      if (ws.readyState === WebSocket.OPEN) {
         try {
           ws.close(1000, 'Client unmount');
         } catch (_) {}
+      } else if (ws.readyState === WebSocket.CONNECTING) {
+        ws.onopen = () => {
+          try {
+            ws.close(1000, 'Client unmount');
+          } catch (_) {}
+        };
       }
     }
   }

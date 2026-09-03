@@ -14,6 +14,7 @@ from app.api.routes import (
     payments,
     agents,
     webhooks,
+    customer_portal,
 )
 
 api_router = APIRouter(prefix="/api")
@@ -32,3 +33,4 @@ api_router.include_router(audit.router)
 api_router.include_router(notifications.router)
 api_router.include_router(agents.router)
 api_router.include_router(webhooks.router)
+api_router.include_router(customer_portal.router)

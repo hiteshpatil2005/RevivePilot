@@ -1,117 +1,132 @@
 /**
- * websocket.js — Centralized WebSocket service for RevivePilot.
+ * websocket.js — Realtime Socket.IO & WebSocket service for RevivePilot.
  *
- * Architecture:
- *   WebSocket (native browser API)
- *     ↓
- *   WebSocketService (this file)
- *     ↓
- *   RealtimeContext.jsx  (single provider)
- *     ↓
- *   Application components (via useRealtime hook)
- *
- * Environment:
- *   VITE_WS_URL — WebSocket server URL (e.g. ws://localhost:8000/ws)
- *
- * Usage:
- *   import { wsService } from './websocket';
- *   wsService.connect();
- *   const unsub = wsService.subscribe(handler);
- *   wsService.send({ type: 'PING' });
- *   unsub(); // unsubscribe
- *   wsService.disconnect();
- *
- * Part 4 integration:
- *   Set VITE_WS_URL in .env.local → wsService will connect automatically.
+ * Uses Socket.IO client for robust auto-reconnection, low-latency event
+ * streaming, and room broadcasting across all dashboard components.
  */
 
-const DEFAULT_WS_HOST = typeof window !== 'undefined' ? `${window.location.protocol === 'https:' ? 'wss:' : 'ws:'}//${window.location.hostname}:8000/ws` : 'ws://localhost:8000/ws';
-const WS_URL = import.meta.env.VITE_WS_URL || DEFAULT_WS_HOST;
+import { io } from 'socket.io-client';
+
+const DEFAULT_SERVER_URL = typeof window !== 'undefined'
+  ? `${window.location.protocol}//${window.location.hostname}:8000`
+  : 'http://localhost:8000';
+
+const SOCKET_URL = import.meta.env.VITE_WS_URL
+  ? import.meta.env.VITE_WS_URL.replace(/^ws/, 'http').replace(/\/ws\/?$/, '')
+  : DEFAULT_SERVER_URL;
 
 const STATUS = {
   DISCONNECTED:  'DISCONNECTED',
   CONNECTING:    'CONNECTING',
   CONNECTED:     'CONNECTED',
   RECONNECTING:  'RECONNECTING',
-  DEMO:          'DEMO',          // fallback mode
+  DEMO:          'DEMO',
 };
 
-const MAX_RECONNECT_ATTEMPTS = 5;
-const BASE_RECONNECT_DELAY_MS = 1000; // doubles each attempt (exponential backoff)
-
-class WebSocketService {
+class RealtimeSocketService {
   constructor() {
-    this._ws            = null;
-    this._status        = STATUS.DISCONNECTED;
-    this._subscribers   = new Set();         // handlers: (event) => void
-    this._statusListeners = new Set();       // handlers: (status) => void
-    this._reconnectAttempts = 0;
-    this._reconnectTimer = null;
+    this._socket          = null;
+    this._status          = STATUS.DISCONNECTED;
+    this._subscribers     = new Set();
+    this._statusListeners = new Set();
     this._intentionalClose = false;
-    this._demoMode = false;
+    this._demoMode        = false;
   }
-
-  // ── Public API ─────────────────────────────────────────────────────────────
 
   get status() { return this._status; }
   get isDemoMode() { return this._demoMode; }
 
   /**
-   * connect() — Establish WebSocket connection with JWT token.
+   * connect() — Establish Socket.IO real-time connection.
    */
   connect() {
-    if (this._ws && (this._ws.readyState === WebSocket.OPEN || this._ws.readyState === WebSocket.CONNECTING)) {
-      return; // already connected / connecting
+    if (this._socket && this._socket.connected) {
+      return;
     }
 
     this._intentionalClose = false;
     this._setStatus(STATUS.CONNECTING);
 
-    try {
-      const token = typeof localStorage !== 'undefined' ? localStorage.getItem('token') : null;
-      const url = token ? `${WS_URL}?token=${encodeURIComponent(token)}` : WS_URL;
+    const token = localStorage.getItem('revivepilot_token') || sessionStorage.getItem('revivepilot_token');
+    const authPayload = token ? { token } : {};
 
-      this._ws = new WebSocket(url);
-      this._ws.onopen    = this._onOpen.bind(this);
-      this._ws.onmessage = this._onMessage.bind(this);
-      this._ws.onerror   = this._onError.bind(this);
-      this._ws.onclose   = this._onClose.bind(this);
+    try {
+      this._socket = io(SOCKET_URL, {
+        path: '/socket.io',
+        transports: ['websocket', 'polling'],
+        auth: authPayload,
+        reconnection: true,
+        reconnectionAttempts: 10,
+        reconnectionDelay: 1000,
+        reconnectionDelayMax: 5000,
+      });
+
+      this._socket.on('connect', () => {
+        this._setStatus(STATUS.CONNECTED);
+        console.info('[Socket.IO] Connected to', SOCKET_URL, 'SID:', this._socket.id);
+
+        // Join merchant room
+        const userJson = localStorage.getItem('revivepilot_user');
+        if (userJson) {
+          try {
+            const user = JSON.parse(userJson);
+            if (user.merchant_id || user.merchantId) {
+              this._socket.emit('join_merchant', { merchant_id: user.merchant_id || user.merchantId });
+            }
+          } catch (_) {}
+        }
+      });
+
+      // Listen for unified backend events
+      this._socket.on('event', (data) => {
+        this._notifySubscribers(data);
+      });
+
+      // Also listen for specific event types if emitted directly
+      const knownEvents = [
+        'payment.created', 'payment.failed', 'payment.captured',
+        'recovery.created', 'recovery.updated', 'recovery.success',
+        'agent.reasoning', 'policy.evaluated',
+      ];
+      knownEvents.forEach((ev) => {
+        this._socket.on(ev, (data) => {
+          this._notifySubscribers({ type: ev, data });
+        });
+      });
+
+      this._socket.on('disconnect', (reason) => {
+        console.info('[Socket.IO] Disconnected:', reason);
+        if (this._intentionalClose) {
+          this._setStatus(STATUS.DISCONNECTED);
+        } else {
+          this._setStatus(STATUS.RECONNECTING);
+        }
+      });
+
+      this._socket.on('connect_error', (err) => {
+        console.warn('[Socket.IO] Connection error:', err.message);
+        this._setStatus(STATUS.RECONNECTING);
+      });
     } catch (err) {
-      console.warn('[WS] Failed to create WebSocket:', err);
-      this._scheduleReconnect();
+      console.error('[Socket.IO] Initialization failed:', err);
+      this._setStatus(STATUS.DISCONNECTED);
     }
   }
 
   /**
-   * disconnect() — Clean, intentional disconnect. No reconnection.
+   * disconnect() — Clean, intentional disconnect.
    */
   disconnect() {
     this._intentionalClose = true;
-    this._clearReconnectTimer();
-    if (this._ws) {
-      const ws = this._ws;
-      this._ws = null;
-      ws.onerror = null;
-      ws.onclose = null;
-      if (ws.readyState === WebSocket.OPEN) {
-        try {
-          ws.close(1000, 'Client disconnect');
-        } catch (_) {}
-      } else if (ws.readyState === WebSocket.CONNECTING) {
-        ws.onopen = () => {
-          try {
-            ws.close(1000, 'Client disconnect');
-          } catch (_) {}
-        };
-      }
+    if (this._socket) {
+      this._socket.disconnect();
+      this._socket = null;
     }
     this._setStatus(STATUS.DISCONNECTED);
   }
 
   /**
    * subscribe(handler) — Register an event handler.
-   * @param {Function} handler — called with parsed event object
-   * @returns {Function} unsubscribe function
    */
   subscribe(handler) {
     this._subscribers.add(handler);
@@ -120,111 +135,51 @@ class WebSocketService {
 
   /**
    * onStatusChange(handler) — Register a connection status listener.
-   * @param {Function} handler — called with STATUS string
-   * @returns {Function} unsubscribe function
    */
   onStatusChange(handler) {
     this._statusListeners.add(handler);
-    // Immediately emit current status
     handler(this._status);
     return () => this._statusListeners.delete(handler);
   }
 
   /**
-   * send(data) — Send a message to the backend.
-   * @param {Object} data — will be JSON-serialized
+   * send(data) — Send event or message to backend socket.
    */
   send(data) {
-    if (this._ws && this._ws.readyState === WebSocket.OPEN) {
-      this._ws.send(JSON.stringify(data));
+    if (this._socket && this._socket.connected) {
+      const eventName = data.type || 'message';
+      this._socket.emit(eventName, data);
     } else {
-      console.warn('[WS] Cannot send — not connected. Status:', this._status);
+      console.warn('[Socket.IO] Cannot send — not connected. Status:', this._status);
     }
   }
 
   /**
-   * dispatchEvent(event) — Inject an event directly (used by demo mode).
-   * Flows through the same handler pipeline as real WS messages.
-   * @param {Object} event
+   * dispatchEvent(event) — Inject an event directly into subscribers.
    */
   dispatchEvent(event) {
     this._notifySubscribers(event);
   }
 
-  // ── Internal ───────────────────────────────────────────────────────────────
-
-  _onOpen() {
-    this._reconnectAttempts = 0;
-    this._setStatus(STATUS.CONNECTED);
-    console.info('[WS] Connected to', WS_URL);
-  }
-
-  _onMessage(msgEvent) {
-    try {
-      const event = JSON.parse(msgEvent.data);
-      this._notifySubscribers(event);
-    } catch (err) {
-      console.warn('[WS] Failed to parse message:', msgEvent.data, err);
-    }
-  }
-
-  _onError(err) {
-    if (this._intentionalClose) return;
-    console.warn('[WS] Connection error:', err);
-    // onClose will fire after this
-  }
-
-  _onClose(closeEvent) {
-    this._ws = null;
-    if (this._intentionalClose) {
-      this._setStatus(STATUS.DISCONNECTED);
-      return;
-    }
-    console.info('[WS] Connection closed. Code:', closeEvent.code, '— scheduling reconnect.');
-    this._scheduleReconnect();
-  }
-
-  _scheduleReconnect() {
-    if (this._reconnectAttempts >= MAX_RECONNECT_ATTEMPTS) {
-      console.warn('[WS] Max reconnect attempts reached. Giving up.');
-      this._setStatus(STATUS.DISCONNECTED);
-      return;
-    }
-
-    this._setStatus(STATUS.RECONNECTING);
-    const delay = BASE_RECONNECT_DELAY_MS * Math.pow(2, this._reconnectAttempts);
-    this._reconnectAttempts++;
-
-    console.info(`[WS] Reconnecting in ${delay}ms (attempt ${this._reconnectAttempts}/${MAX_RECONNECT_ATTEMPTS})`);
-    this._reconnectTimer = setTimeout(() => {
-      this.connect();
-    }, delay);
-  }
-
-  _clearReconnectTimer() {
-    if (this._reconnectTimer) {
-      clearTimeout(this._reconnectTimer);
-      this._reconnectTimer = null;
-    }
-  }
-
   _setStatus(status) {
     if (this._status === status) return;
     this._status = status;
-    this._statusListeners.forEach(listener => {
+    this._statusListeners.forEach((listener) => {
       try { listener(status); } catch {}
     });
   }
 
   _notifySubscribers(event) {
-    this._subscribers.forEach(handler => {
-      try { handler(event); } catch (err) {
-        console.warn('[WS] Subscriber error:', err);
+    this._subscribers.forEach((handler) => {
+      try {
+        handler(event);
+      } catch (err) {
+        console.warn('[Socket.IO] Subscriber handler error:', err);
       }
     });
   }
 }
 
-// Singleton instance — one WebSocket connection for the entire app
-export const wsService = new WebSocketService();
+// Singleton instance export
+export const wsService = new RealtimeSocketService();
 export { STATUS as WS_STATUS };

@@ -4,36 +4,119 @@ import {
   AlertTriangle, Clock, XCircle, ArrowRight, Loader2, Smartphone,
   Info, ChevronDown, ChevronUp, Lock, RefreshCw, Zap, Search
 } from 'lucide-react';
-import { PAYMENT_SCENARIOS, FAILURE_CATEGORIES } from '../../data/mockUserData';
+import { PAYMENT_SCENARIOS, FAILURE_CATEGORIES, TEST_PAYMENT_CARDS } from '../../data/mockUserData';
 import { userApi } from '../../services/api';
+import { customerSocket } from '../../services/socket';
 import { useCustomerAuth } from '../../context/CustomerAuthContext';
 
 export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFailure }) {
-  const { currentCustomer, addOrder } = useCustomerAuth();
+  const {
+    currentCustomer,
+    addOrder,
+    markOrderRecovered,
+    setIsAuthModalOpen,
+    deductBalance,
+    setCustomerBalance,
+  } = useCustomerAuth();
 
   const [activeTab, setActiveTab] = useState('upi');
   const [selectedScenario, setSelectedScenario] = useState('INSUFFICIENT_FUNDS');
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [showSimulatorDrawer, setShowSimulatorDrawer] = useState(true);
 
-  // Form states
-  const [vpa, setVpa] = useState(currentCustomer?.upiId || 'rahul.sharma@okhdfcbank');
-  const [cardNumber, setCardNumber] = useState('4242 4242 4242 4242');
-  const [cardHolder, setCardHolder] = useState(currentCustomer?.name || 'Rahul Sharma');
-  const [expiry, setExpiry] = useState('12/28');
-  const [cvv, setCvv] = useState('889');
+  // Form states with dynamic unique assigned payment instruments
+  const [selectedCardId, setSelectedCardId] = useState('card_assigned');
+  const [vpa, setVpa] = useState(
+    currentCustomer?.upiVpa || currentCustomer?.upi_vpa || 'user.9281@okhdfcbank'
+  );
+  const [cardNumber, setCardNumber] = useState(
+    currentCustomer?.cardNumber || currentCustomer?.card_number || '4532 8912 3456 7890'
+  );
+  const [cardHolder, setCardHolder] = useState(currentCustomer?.name || 'Verified User');
+  const [expiry, setExpiry] = useState(currentCustomer?.cardExpiry || currentCustomer?.card_expiry || '12/28');
+  const [cvv, setCvv] = useState(currentCustomer?.cardCvv || currentCustomer?.card_cvv || '742');
 
-  // Execution states
+  const allAvailableCards = useMemo(() => {
+    const list = [];
+    if (currentCustomer?.cardNumber || currentCustomer?.card_number) {
+      list.push({
+        id: 'card_assigned',
+        network: currentCustomer.cardNetwork || currentCustomer.card_network || 'Visa',
+        brand: `${currentCustomer.cardNetwork || 'Visa'} Corporate Platinum`,
+        number: currentCustomer.cardNumber || currentCustomer.card_number,
+        last4: String(currentCustomer.cardNumber || currentCustomer.card_number).slice(-4),
+        holder: currentCustomer.name || 'Verified User',
+        expiry: currentCustomer.cardExpiry || currentCustomer.card_expiry || '12/28',
+        cvv: currentCustomer.cardCvv || currentCustomer.card_cvv || '742',
+        bank: currentCustomer.bankName || 'HDFC Bank',
+        bg: 'from-[#002050] to-[#005a9e]',
+        type: 'Assigned Test Rail',
+      });
+    }
+    (TEST_PAYMENT_CARDS || []).forEach((c) => {
+      if (!list.find((x) => x.number === c.number)) {
+        list.push(c);
+      }
+    });
+    return list;
+  }, [currentCustomer]);
+
+  const activeCardObj = useMemo(() => {
+    return allAvailableCards.find((c) => c.id === selectedCardId) || allAvailableCards[0];
+  }, [allAvailableCards, selectedCardId]);
+
+  const handleSelectCard = (c) => {
+    setSelectedCardId(c.id);
+    setCardNumber(c.number);
+    setExpiry(c.expiry);
+    setCvv(c.cvv);
+    setCardHolder(c.holder);
+  };
+
+  // Execution & Recovery states
   const [isProcessing, setIsProcessing] = useState(false);
   const [authStep, setAuthStep] = useState('');
   const [paymentResult, setPaymentResult] = useState(null);
+  const [activeCaseId, setActiveCaseId] = useState(null);
+  const [recoveryStep, setRecoveryStep] = useState(0);
+  const [recoveryActionReady, setRecoveryActionReady] = useState(false);
+  const [isRecovering, setIsRecovering] = useState(false);
 
   useEffect(() => {
     if (currentCustomer) {
-      setVpa(currentCustomer.upiId || 'rahul.sharma@okhdfcbank');
-      setCardHolder(currentCustomer.name || 'Rahul Sharma');
+      setVpa(currentCustomer.upiVpa || currentCustomer.upi_vpa || 'user.9281@okhdfcbank');
+      setCardNumber(currentCustomer.cardNumber || currentCustomer.card_number || '4532 8912 3456 7890');
+      setCardHolder(currentCustomer.name || 'Verified User');
+      setExpiry(currentCustomer.cardExpiry || currentCustomer.card_expiry || '12/28');
+      setCvv(currentCustomer.cardCvv || currentCustomer.card_cvv || '742');
     }
   }, [currentCustomer]);
+
+  // Subscribe to real-time backend Socket.IO events (backend-driven, NO fake timers)
+  useEffect(() => {
+    const unsub = customerSocket.subscribe((event) => {
+      const type = event?.type || event?.event;
+      if (type === 'recovery.case.created') {
+        setRecoveryStep(1);
+      } else if (type === 'recovery.analysis.started') {
+        setRecoveryStep(2);
+      } else if (type === 'recovery.root_cause_identified') {
+        setRecoveryStep(3);
+      } else if (type === 'recovery.strategy_selected') {
+        setRecoveryStep(4);
+      } else if (type === 'recovery.action.completed') {
+        setRecoveryStep(5);
+        setRecoveryActionReady(true);
+      } else if (type === 'payment.recovered') {
+        setPaymentResult((prev) => ({
+          ...prev,
+          status: 'RECOVERED',
+          recovered_amount: event?.data?.recovered_amount || item?.amount,
+        }));
+      }
+    });
+    return () => unsub();
+  }, [item]);
 
   const filteredScenarios = useMemo(() => {
     if (selectedCategory === 'ALL') return PAYMENT_SCENARIOS;
@@ -43,43 +126,50 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
   }, [selectedCategory]);
 
   const activeScenarioObj = useMemo(() => {
-    return PAYMENT_SCENARIOS.find((s) => s.id === selectedScenario) || PAYMENT_SCENARIOS[0];
+    return (
+      PAYMENT_SCENARIOS.find((s) => s.id === selectedScenario) || PAYMENT_SCENARIOS[0]
+    );
   }, [selectedScenario]);
 
   if (!isOpen || !item) return null;
 
   const handlePay = async () => {
+    if (!currentCustomer) {
+      if (setIsAuthModalOpen) setIsAuthModalOpen(true);
+      return;
+    }
+
     setIsProcessing(true);
     setPaymentResult(null);
+    setRecoveryStep(0);
+    setRecoveryActionReady(false);
 
     setAuthStep('Routing to Payment Gateway Switch...');
-    await new Promise((r) => setTimeout(r, 450));
+    await new Promise((r) => setTimeout(r, 400));
 
-    setAuthStep('Verifying 3D-Secure 2.0 / MPIN Protocol...');
-    await new Promise((r) => setTimeout(r, 450));
-
-    setAuthStep('Processing Authorization Payload...');
+    setAuthStep('Authorizing through Merchant Payment Gateway...');
     await new Promise((r) => setTimeout(r, 400));
 
     try {
-      const isSuccess = selectedScenario === 'NORMAL';
-      const res = await userApi.processPayment({
-        customer: currentCustomer,
-        item,
+      const isSuccess = selectedScenario === 'NORMAL' || selectedScenario === 'SUCCESS';
+      const res = await userApi.simulateCustomerPayment({
+        amount: item.amount,
+        method: activeTab,
         scenario: selectedScenario,
-        paymentMethod: activeTab.toUpperCase(),
-        failureReason: isSuccess ? null : selectedScenario,
+        itemName: item.name,
       });
 
+      setActiveCaseId(res.case_id);
+
       const orderRecord = {
-        id: `INV-2026-${Date.now().toString().slice(-4)}`,
+        id: res.payment_id || `INV-2026-${Date.now().toString().slice(-4)}`,
         date: new Date().toISOString(),
         itemName: item.name,
         amount: item.amount,
         status: isSuccess ? 'SUCCESS' : 'FAILED',
         failureReason: isSuccess ? null : selectedScenario,
         paymentMethod: activeTab === 'upi' ? `UPI (${vpa})` : `Card (•••• ${cardNumber.slice(-4)})`,
-        caseId: `RC-${Date.now().toString().slice(-5)}`,
+        caseId: res.case_id || `RC-${Date.now().toString().slice(-5)}`,
       };
 
       addOrder(orderRecord);
@@ -90,6 +180,10 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
       });
 
       if (isSuccess) {
+        if (deductBalance) deductBalance(item.amount);
+        if (res?.remaining_balance !== undefined && setCustomerBalance) {
+          setCustomerBalance(res.remaining_balance);
+        }
         if (onSuccess) onSuccess(res);
       } else {
         if (onFailure) onFailure(res, orderRecord);
@@ -99,6 +193,31 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
     } finally {
       setIsProcessing(false);
       setAuthStep('');
+    }
+  };
+
+  const handleRetryRecovery = async () => {
+    if (!activeCaseId) return;
+    setIsRecovering(true);
+    try {
+      const res = await userApi.retryRecovery(activeCaseId);
+      const recoveredAmt = res.recovered_amount || item.amount;
+      setPaymentResult((prev) => ({
+        ...prev,
+        status: 'RECOVERED',
+        recovered_amount: recoveredAmt,
+      }));
+      markOrderRecovered(activeCaseId, recoveredAmt);
+
+      if (deductBalance) deductBalance(recoveredAmt);
+      if (res?.remaining_balance !== undefined && setCustomerBalance) {
+        setCustomerBalance(res.remaining_balance);
+      }
+      if (onSuccess) onSuccess(res);
+    } catch (err) {
+      console.error('Retry failed:', err);
+    } finally {
+      setIsRecovering(false);
     }
   };
 
@@ -142,8 +261,30 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
         <div className="p-5 flex-1 overflow-y-auto space-y-4 bg-white text-slate-900">
           {paymentResult ? (
             /* Result Screen */
-            <div className="text-center py-6 space-y-4">
-              {paymentResult.status === 'SUCCESS' ? (
+            <div className="text-center py-5 space-y-4">
+              {paymentResult.status === 'RECOVERED' ? (
+                <div className="space-y-3">
+                  <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
+                    <CheckCircle2 size={34} />
+                  </div>
+                  <h4 className="text-xl font-bold text-emerald-800">
+                    Payment Recovered Successfully!
+                  </h4>
+                  <p className="text-xs text-slate-600 max-w-sm mx-auto">
+                    ₹{(paymentResult.recovered_amount || item.amount).toLocaleString('en-IN')}.00 has been captured and recorded as actual recovered revenue in the database.
+                  </p>
+                  <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-xs text-emerald-900 max-w-md mx-auto space-y-1">
+                    <div className="flex items-center justify-between font-semibold">
+                      <span>Audit Status:</span>
+                      <span className="font-mono text-emerald-700">RECOVERY_COMPLETED</span>
+                    </div>
+                    <div className="flex items-center justify-between text-slate-600">
+                      <span>Merchant Cockpit:</span>
+                      <span>Real-time +₹{(paymentResult.recovered_amount || item.amount).toLocaleString('en-IN')} updated</span>
+                    </div>
+                  </div>
+                </div>
+              ) : paymentResult.status === 'SUCCESS' ? (
                 <div className="space-y-2">
                   <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
                     <CheckCircle2 size={32} />
@@ -153,13 +294,13 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
                     ₹{item.amount.toLocaleString('en-IN')} has been authorized and captured cleanly.
                   </p>
                   <div className="p-2.5 bg-emerald-50 rounded text-xs font-mono-code text-emerald-800 border border-emerald-200 inline-block mt-2">
-                    Payment ID: {paymentResult.paymentId || 'pay_demo_success'}
+                    Payment ID: {paymentResult.payment_id || paymentResult.paymentId || 'pay_demo_success'}
                   </div>
                 </div>
               ) : (
                 <div className="space-y-3">
-                  <div className="w-14 h-14 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
-                    <AlertTriangle size={32} />
+                  <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
+                    <AlertTriangle size={28} />
                   </div>
                   <div>
                     <span className="text-[11px] uppercase font-bold text-red-600 tracking-wider">
@@ -174,22 +315,70 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
                     {activeScenarioObj.description}
                   </p>
 
-                  <div className="p-3.5 bg-blue-50/80 rounded-lg border border-blue-200 text-left text-xs text-blue-900 space-y-1.5 max-w-md mx-auto mt-2">
-                    <div className="flex items-center justify-between">
-                      <span className="font-bold flex items-center gap-1.5 text-[#0078d4]">
-                        <Zap size={14} />
-                        RevivePilot Autonomous Agents Active
+                  {/* Live Backend-Driven Recovery Stepper */}
+                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-left text-xs space-y-2.5 max-w-md mx-auto mt-2">
+                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+                      <span className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
+                        <Zap size={14} className="text-[#0078d4]" />
+                        Real-Time Recovery Lifecycle (Socket.IO)
                       </span>
-                      <span className="font-mono text-[10px] bg-white px-2 py-0.5 rounded border border-blue-200 text-[#0078d4] font-semibold">
-                        Port 5173
+                      <span className="text-[10px] font-mono text-[#0078d4] font-semibold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                        Live Case #{activeCaseId ? String(activeCaseId).slice(0, 8) : 'ACTIVE'}
                       </span>
                     </div>
-                    <p className="text-slate-600 text-[11px] leading-relaxed">
-                      Captured failure telemetry and dispatched to the multi-agent mesh. Detection, Root Cause, and Strategy agents are formulating recovery actions.
-                    </p>
-                    <div className="pt-1 border-t border-blue-200/60 flex items-center justify-between text-[11px]">
-                      <span className="text-slate-500">Autonomous Action:</span>
-                      <span className="font-semibold text-emerald-700">{activeScenarioObj.strategy}</span>
+
+                    {/* Steps */}
+                    <div className="space-y-2 pt-1 text-[11px]">
+                      <div className="flex items-center gap-2 text-emerald-700 font-semibold">
+                        <CheckCircle2 size={13} />
+                        <span>Payment Failure Telemetry Captured</span>
+                      </div>
+
+                      <div className={`flex items-center gap-2 ${recoveryStep >= 1 ? 'text-emerald-700 font-semibold' : 'text-slate-400'}`}>
+                        {recoveryStep >= 1 ? <CheckCircle2 size={13} /> : <div className="w-3 h-3 rounded-full border border-slate-300" />}
+                        <span>Revenue Risk Detected by Detection Agent</span>
+                      </div>
+
+                      <div className={`flex items-center gap-2 ${recoveryStep >= 2 ? 'text-emerald-700 font-semibold' : 'text-slate-400'}`}>
+                        {recoveryStep >= 2 ? <CheckCircle2 size={13} /> : <div className="w-3 h-3 rounded-full border border-slate-300" />}
+                        <span>Root Cause Agent Diagnosing Failure</span>
+                      </div>
+
+                      <div className={`flex items-center gap-2 ${recoveryStep >= 4 ? 'text-emerald-700 font-semibold' : 'text-slate-400'}`}>
+                        {recoveryStep >= 4 ? <CheckCircle2 size={13} /> : <div className="w-3 h-3 rounded-full border border-slate-300" />}
+                        <span>Recovery Strategy Selected: {activeScenarioObj.strategy}</span>
+                      </div>
+
+                      <div className={`flex items-center gap-2 ${recoveryActionReady || recoveryStep >= 5 ? 'text-blue-700 font-bold' : 'text-slate-400'}`}>
+                        {recoveryActionReady || recoveryStep >= 5 ? (
+                          <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping" />
+                        ) : (
+                          <div className="w-3 h-3 rounded-full border border-slate-300" />
+                        )}
+                        <span>Autonomous Recovery Action Ready</span>
+                      </div>
+                    </div>
+
+                    {/* Action Button */}
+                    <div className="pt-2">
+                      <button
+                        type="button"
+                        onClick={handleRetryRecovery}
+                        disabled={isRecovering}
+                        className="w-full btn-azure py-2.5 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
+                      >
+                        {isRecovering ? (
+                          <>
+                            <Loader2 size={14} className="animate-spin" />
+                            <span>Executing Recovery Settlement...</span>
+                          </>
+                        ) : (
+                          <>
+                            <RefreshCw size={13} />
+                            <span>Retry &amp; Recover Payment (₹{item.amount.toLocaleString('en-IN')})</span>
+                          </>
+                        )}
+                      </button>
                     </div>
                   </div>
                 </div>
@@ -208,6 +397,45 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
           ) : (
             /* Active Form */
             <>
+              {/* Dynamic Assigned Instruments Banner */}
+              {currentCustomer ? (
+                <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between text-xs">
+                  <div className="flex items-center gap-2">
+                    <ShieldCheck size={15} className="text-emerald-600 flex-shrink-0" />
+                    <div>
+                      <p className="font-bold text-slate-900 text-[11px] leading-tight">
+                        Verified Identity: {currentCustomer.name}
+                      </p>
+                      <p className="text-[10px] text-slate-500 font-mono">
+                        {currentCustomer.email} • Unique Instruments Assigned
+                      </p>
+                    </div>
+                  </div>
+                  <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-white text-blue-700 border border-blue-200 font-mono">
+                    {currentCustomer.cardNetwork || 'Visa'} •••• {String(cardNumber).slice(-4)}
+                  </span>
+                </div>
+              ) : (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg flex items-center justify-between text-xs text-red-900">
+                  <div className="flex items-center gap-2 text-xs">
+                    <AlertTriangle size={15} className="text-red-600 flex-shrink-0" />
+                    <div>
+                      <span className="font-bold block">Sign In Required to Proceed</span>
+                      <span className="text-[11px] text-red-700">You must log in to authorize this transaction.</span>
+                    </div>
+                  </div>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      if (setIsAuthModalOpen) setIsAuthModalOpen(true);
+                    }}
+                    className="px-3 py-1.5 bg-red-600 hover:bg-red-700 text-white rounded text-xs font-bold transition-colors cursor-pointer"
+                  >
+                    Sign In
+                  </button>
+                </div>
+              )}
+
               {/* Tabs */}
               <div className="grid grid-cols-3 gap-2">
                 <button
@@ -278,35 +506,98 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
 
               {/* Cards Form */}
               {activeTab === 'cards' && (
-                <div className="p-3.5 bg-slate-50 rounded border border-slate-200 space-y-2.5">
+                <div className="space-y-3">
+                  {/* Card Selector Pills */}
                   <div>
-                    <label className="text-[11px] font-semibold text-slate-600 block mb-1">Card Number</label>
-                    <input
-                      type="text"
-                      value={cardNumber}
-                      onChange={(e) => setCardNumber(e.target.value)}
-                      className="w-full px-3 py-1.5 rounded border border-slate-300 bg-white text-xs font-mono-code"
-                    />
+                    <label className="text-[11px] font-semibold text-slate-600 block mb-1.5">
+                      Select Payment Card ({allAvailableCards.length} Cards Available)
+                    </label>
+                    <div className="grid grid-cols-2 gap-1.5">
+                      {allAvailableCards.map((c) => (
+                        <button
+                          key={c.id}
+                          type="button"
+                          onClick={() => handleSelectCard(c)}
+                          className={`p-2 rounded border text-left text-xs transition-all cursor-pointer ${
+                            selectedCardId === c.id
+                              ? 'border-[#0078d4] bg-blue-50/70 shadow-xs ring-1 ring-blue-500/30'
+                              : 'border-slate-200 bg-white hover:bg-slate-50'
+                          }`}
+                        >
+                          <div className="flex items-center justify-between">
+                            <span className="font-bold text-slate-800 text-[11px] truncate">{c.brand}</span>
+                            <span className="text-[9px] uppercase font-mono px-1 rounded bg-slate-100 font-semibold text-slate-600">
+                              {c.network}
+                            </span>
+                          </div>
+                          <p className="font-mono text-[11px] text-slate-500 mt-0.5">•••• {c.last4}</p>
+                        </button>
+                      ))}
+                    </div>
                   </div>
-                  <div className="grid grid-cols-2 gap-2">
+
+                  {/* Realistic Credit Card Preview */}
+                  <div className={`p-4 rounded-xl text-white bg-gradient-to-r ${activeCardObj?.bg || 'from-[#002050] to-[#005a9e]'} shadow-md space-y-3 relative overflow-hidden`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-[11px] font-semibold tracking-wider uppercase opacity-80">
+                        {activeCardObj?.bank || 'HDFC Bank'}
+                      </span>
+                      <span className="text-xs font-bold font-mono tracking-widest">
+                        {activeCardObj?.network || 'Visa'}
+                      </span>
+                    </div>
+
+                    <div className="w-8 h-5 rounded bg-amber-300/80 border border-amber-400/80 flex items-center justify-center shadow-inner">
+                      <div className="w-5 h-3 border border-amber-500/50 rounded-xs" />
+                    </div>
+
+                    <p className="font-mono text-sm tracking-widest font-bold">
+                      {cardNumber ? cardNumber.replace(/(\d{4})/g, '$1 ').trim() : '••••  ••••  ••••  7890'}
+                    </p>
+
+                    <div className="flex items-center justify-between text-[10px] uppercase tracking-wider opacity-90">
+                      <div>
+                        <span className="text-[8px] opacity-60 block">Card Holder</span>
+                        <span className="font-semibold truncate max-w-[150px] inline-block">{cardHolder || 'Verified User'}</span>
+                      </div>
+                      <div className="text-right">
+                        <span className="text-[8px] opacity-60 block">Expires</span>
+                        <span className="font-mono font-semibold">{expiry || '12/28'}</span>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Card Form Inputs */}
+                  <div className="p-3 bg-slate-50 rounded border border-slate-200 space-y-2">
                     <div>
-                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">Expiry</label>
+                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">Card Number</label>
                       <input
                         type="text"
-                        value={expiry}
-                        onChange={(e) => setExpiry(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded border border-slate-300 bg-white text-xs font-mono-code text-center"
+                        value={cardNumber}
+                        onChange={(e) => setCardNumber(e.target.value)}
+                        className="w-full px-3 py-1.5 rounded border border-slate-300 bg-white text-xs font-mono-code focus:outline-hidden focus:border-[#0078d4]"
                       />
                     </div>
-                    <div>
-                      <label className="text-[11px] font-semibold text-slate-600 block mb-1">CVV</label>
-                      <input
-                        type="password"
-                        value={cvv}
-                        onChange={(e) => setCvv(e.target.value)}
-                        className="w-full px-3 py-1.5 rounded border border-slate-300 bg-white text-xs font-mono-code text-center"
-                        maxLength={3}
-                      />
+                    <div className="grid grid-cols-2 gap-2">
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-600 block mb-1">Expiry (MM/YY)</label>
+                        <input
+                          type="text"
+                          value={expiry}
+                          onChange={(e) => setExpiry(e.target.value)}
+                          className="w-full px-3 py-1.5 rounded border border-slate-300 bg-white text-xs font-mono-code text-center focus:outline-hidden focus:border-[#0078d4]"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-semibold text-slate-600 block mb-1">CVV</label>
+                        <input
+                          type="password"
+                          value={cvv}
+                          maxLength={4}
+                          onChange={(e) => setCvv(e.target.value)}
+                          className="w-full px-3 py-1.5 rounded border border-slate-300 bg-white text-xs font-mono-code text-center focus:outline-hidden focus:border-[#0078d4]"
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -409,10 +700,21 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
               <button
                 type="button"
                 onClick={handlePay}
-                disabled={isProcessing}
-                className="w-full btn-azure py-2.5 text-xs font-bold cursor-pointer disabled:opacity-50"
+                disabled={isProcessing || !currentCustomer}
+                className={`w-full py-2.5 text-xs font-bold rounded flex items-center justify-center gap-1.5 transition-colors cursor-pointer ${
+                  !currentCustomer
+                    ? 'bg-slate-300 text-slate-500 cursor-not-allowed'
+                    : isProcessing
+                      ? 'bg-slate-400 text-white cursor-wait'
+                      : 'btn-azure'
+                }`}
               >
-                {isProcessing ? (
+                {!currentCustomer ? (
+                  <>
+                    <Lock size={13} />
+                    <span>Sign In Required to Pay</span>
+                  </>
+                ) : isProcessing ? (
                   <>
                     <Loader2 size={14} className="animate-spin text-white" />
                     <span>{authStep || 'Processing...'}</span>
