@@ -47,7 +47,10 @@ class RealtimeSocketService {
     this._intentionalClose = false;
     this._setStatus(STATUS.CONNECTING);
 
-    const token = localStorage.getItem('revivepilot_token') || sessionStorage.getItem('revivepilot_token');
+    const token = localStorage.getItem('revivepilot-token')
+      || localStorage.getItem('revivepilot_token')
+      || sessionStorage.getItem('revivepilot-token')
+      || sessionStorage.getItem('revivepilot_token');
     const authPayload = token ? { token } : {};
 
     try {
@@ -56,7 +59,7 @@ class RealtimeSocketService {
         transports: ['websocket', 'polling'],
         auth: authPayload,
         reconnection: true,
-        reconnectionAttempts: 10,
+        reconnectionAttempts: 20,
         reconnectionDelay: 1000,
         reconnectionDelayMax: 5000,
       });
@@ -65,13 +68,21 @@ class RealtimeSocketService {
         this._setStatus(STATUS.CONNECTED);
         console.info('[Socket.IO] Connected to', SOCKET_URL, 'SID:', this._socket.id);
 
+        // Authenticate socket session dynamically
+        if (token) {
+          this._socket.emit('authenticate', { token });
+        }
+
         // Join merchant room
-        const userJson = localStorage.getItem('revivepilot_user');
-        if (userJson) {
+        const sessionJson = localStorage.getItem('revivepilot-session')
+          || localStorage.getItem('revivepilot_user');
+        if (sessionJson) {
           try {
-            const user = JSON.parse(userJson);
-            if (user.merchant_id || user.merchantId) {
-              this._socket.emit('join_merchant', { merchant_id: user.merchant_id || user.merchantId });
+            const parsed = JSON.parse(sessionJson);
+            const user = parsed.user || parsed;
+            const merchantId = user.merchant_id || user.merchantId;
+            if (merchantId) {
+              this._socket.emit('join_merchant', { merchant_id: merchantId });
             }
           } catch (_) {}
         }
@@ -82,15 +93,16 @@ class RealtimeSocketService {
         this._notifySubscribers(data);
       });
 
-      // Also listen for specific event types if emitted directly
-      const knownEvents = [
-        'payment.created', 'payment.failed', 'payment.captured',
-        'recovery.created', 'recovery.updated', 'recovery.success',
-        'agent.reasoning', 'policy.evaluated',
-      ];
-      knownEvents.forEach((ev) => {
-        this._socket.on(ev, (data) => {
-          this._notifySubscribers({ type: ev, data });
+      // Listen to all specific Socket.IO events via onAny
+      this._socket.onAny((eventName, data) => {
+        if (eventName === 'event' || eventName === 'connect' || eventName === 'disconnect' || eventName === 'connect_error') {
+          return;
+        }
+        this._notifySubscribers({
+          type: eventName,
+          event: eventName,
+          event_type: eventName,
+          data: data?.data !== undefined ? data.data : data,
         });
       });
 
@@ -123,6 +135,32 @@ class RealtimeSocketService {
       this._socket = null;
     }
     this._setStatus(STATUS.DISCONNECTED);
+  }
+
+  /**
+   * reconnectWithToken(token) — Authenticate existing connection or reconnect with fresh token.
+   */
+  reconnectWithToken(token) {
+    if (!token) return;
+    if (this._socket && this._socket.connected) {
+      this._socket.emit('authenticate', { token });
+      const sessionJson = localStorage.getItem('revivepilot-session') || localStorage.getItem('revivepilot_user');
+      if (sessionJson) {
+        try {
+          const parsed = JSON.parse(sessionJson);
+          const user = parsed.user || parsed;
+          const merchantId = user.merchant_id || user.merchantId;
+          if (merchantId) {
+            this._socket.emit('join_merchant', { merchant_id: merchantId });
+          }
+        } catch (_) {}
+      }
+    } else {
+      if (this._socket) {
+        this.disconnect();
+      }
+      this.connect();
+    }
   }
 
   /**

@@ -29,8 +29,9 @@ async def connect(sid, environ, auth):
         token = qs.get("token", [None])[0]
 
     if not token:
-        logger.warning(f"[Socket.IO] Connection rejected: No auth token provided (SID: {sid})")
-        raise ConnectionRefusedError("Authentication token required.")
+        logger.info(f"[Socket.IO] Guest connection accepted (SID: {sid}); awaiting authentication event")
+        await sio.save_session(sid, {"actor": "unauthenticated"})
+        return
 
     payload = decode_access_token(token)
     if not payload or "sub" not in payload:
@@ -62,6 +63,54 @@ async def connect(sid, environ, auth):
         merchant_room = f"merchant:{merchant_id}"
         await sio.enter_room(sid, merchant_room)
         logger.info(f"[Socket.IO] Merchant user {user_id} authenticated → joined room: {merchant_room}")
+
+
+@sio.event
+async def authenticate(sid, data):
+    """
+    Allows a connected client to authenticate and join scoped rooms dynamically.
+    """
+    token = None
+    if isinstance(data, dict):
+        token = data.get("token")
+    elif isinstance(data, str):
+        token = data
+
+    if not token:
+        logger.warning(f"[Socket.IO] authenticate failed: No token provided (SID: {sid})")
+        return {"success": False, "error": "Token required"}
+
+    payload = decode_access_token(token)
+    if not payload or "sub" not in payload:
+        logger.warning(f"[Socket.IO] authenticate failed: Invalid JWT (SID: {sid})")
+        return {"success": False, "error": "Invalid or expired token"}
+
+    is_customer = payload.get("role") == "customer" or "customer_id" in payload
+
+    if is_customer:
+        customer_id = str(payload.get("customer_id") or payload["sub"])
+        merchant_id = str(payload.get("merchant_id", ""))
+        await sio.save_session(sid, {
+            "actor": "customer",
+            "customer_id": customer_id,
+            "merchant_id": merchant_id,
+        })
+        customer_room = f"customer:{customer_id}"
+        await sio.enter_room(sid, customer_room)
+        logger.info(f"[Socket.IO] Customer {customer_id} post-authenticated → joined room: {customer_room}")
+        return {"success": True, "room": customer_room, "actor": "customer"}
+    else:
+        merchant_id = str(payload.get("merchant_id", "00000000-0000-0000-0000-000000000001"))
+        user_id = str(payload["sub"])
+        await sio.save_session(sid, {
+            "actor": "merchant",
+            "merchant_id": merchant_id,
+            "user_id": user_id,
+        })
+        merchant_room = f"merchant:{merchant_id}"
+        await sio.enter_room(sid, merchant_room)
+        logger.info(f"[Socket.IO] Merchant user {user_id} post-authenticated → joined room: {merchant_room}")
+        return {"success": True, "room": merchant_room, "actor": "merchant"}
 
 
 @sio.event

@@ -2,6 +2,8 @@ from decimal import Decimal
 from typing import List, Dict, Any, Tuple
 from app.agents.base import BaseAgent
 from app.agents.schemas import AgentContext, AgentResult
+from app.agents.llm import LLMAdapter
+from app.core.config import settings
 
 
 class ActionAgent(BaseAgent):
@@ -61,28 +63,39 @@ class ActionAgent(BaseAgent):
         strategy = context.metadata.get("strategy", "Delayed Retry")
         policy_passed, violations, checks = self.evaluate_policies(context, strategy)
 
+        llm_output = await LLMAdapter.generate_reasoning(
+            prompt_type="action",
+            context={
+                "strategy": strategy,
+                "amount": context.amount,
+                "attempt_count": context.attempt_count,
+                "customer_failure_history": context.customer_failure_history,
+                "violations": violations,
+            },
+        )
+
         if not policy_passed:
-            # Policy blocked action
             decision = "BLOCKED_BY_POLICY"
-            reasoning = f"Autonomous action blocked by bounded autonomy rules: {'; '.join(violations)}."
+            reasoning = llm_output.get("reasoning") or f"Autonomous action blocked by bounded autonomy rules: {'; '.join(violations)}."
             action_taken = "ESCALATE_TO_HUMAN" if "exceeds autonomous limit" in str(violations) else "STOP_RECOVERY"
         else:
             decision = "POLICY_APPROVED"
-            reasoning = f"All bounded autonomy policies satisfied. Autonomous recovery strategy '{strategy}' approved for execution."
+            reasoning = llm_output.get("reasoning") or f"All bounded autonomy policies satisfied. Autonomous recovery strategy '{strategy}' approved for execution."
             action_taken = f"EXECUTE_{strategy.upper().replace(' ', '_')}"
 
         return AgentResult(
             agent_name=self.name,
             decision=decision,
-            confidence=98 if policy_passed else 100,
+            confidence=llm_output.get("confidence", 98 if policy_passed else 100),
             reasoning_summary=reasoning,
             policy_passed=policy_passed,
             policy_violations=violations,
             action_taken=action_taken,
-            latency_ms=10,
-            tokens_used=120,
+            latency_ms=llm_output.get("_latency_ms", 10),
+            tokens_used=llm_output.get("_tokens_used", 120),
             metadata={
                 "checks": checks,
                 "action": action_taken,
+                "ai_model": llm_output.get("_ai_model", settings.GEMINI_MODEL),
             },
         )

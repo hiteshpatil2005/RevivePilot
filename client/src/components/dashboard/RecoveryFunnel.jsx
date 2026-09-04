@@ -1,8 +1,7 @@
 import { ArrowDown } from 'lucide-react';
-import { MOCK_RECOVERY_FUNNEL } from '../../data/mockData';
 
 function FunnelBar({ value, max, color }) {
-  const pct = Math.round((value / max) * 100);
+  const pct = max > 0 ? Math.min(100, Math.round((value / max) * 100)) : 0;
   return (
     <div
       className="h-1.5 rounded-full overflow-hidden"
@@ -16,13 +15,28 @@ function FunnelBar({ value, max, color }) {
   );
 }
 
-const FUNNEL_COLORS = ['#3b82f6', '#f59e0b', '#8b5cf6', '#06b6d4', '#10b981'];
+const FUNNEL_COLORS = ['#3b82f6', '#f59e0b', '#8b5cf6', '#10b981'];
 
 /**
- * RecoveryFunnel — vertical funnel showing the recovery pipeline stages.
+ * RecoveryFunnel — vertical funnel showing real recovery pipeline stages from metrics.
  */
-export default function RecoveryFunnel() {
-  const maxVal = MOCK_RECOVERY_FUNNEL[0].value;
+export default function RecoveryFunnel({ metrics }) {
+  const active = metrics?.activeCases ?? 0;
+  const recAmt = metrics?.recoveredRevenue ?? 0;
+  const recoveredCount = recAmt > 0 ? 1 : 0;
+  const total = (metrics?.totalEventsToday ?? 0) > 0 ? metrics.totalEventsToday : (active + recoveredCount);
+
+  const stages = [
+    { label: 'Failures Detected', value: total },
+    { label: 'Risk Evaluated', value: total > 0 ? Math.min(total, active + recoveredCount) : 0 },
+    { label: 'Action Dispatched', value: total > 0 ? Math.min(total, active + recoveredCount) : 0 },
+    { label: 'Revenue Recovered', value: recoveredCount },
+  ].map((s, i, arr) => {
+    const pct = arr[0].value > 0 ? Math.round((s.value / arr[0].value) * 100) : 0;
+    return { ...s, pct };
+  });
+
+  const maxVal = stages[0].value || 1;
 
   return (
     <div className="card overflow-hidden">
@@ -39,7 +53,7 @@ export default function RecoveryFunnel() {
       </div>
 
       <div className="px-5 py-4 space-y-3">
-        {MOCK_RECOVERY_FUNNEL.map((stage, i) => (
+        {stages.map((stage, i) => (
           <div key={stage.label}>
             <div className="flex items-center justify-between mb-1.5">
               <div className="flex items-center gap-2">
@@ -75,7 +89,7 @@ export default function RecoveryFunnel() {
               </div>
             </div>
             <FunnelBar value={stage.value} max={maxVal} color={FUNNEL_COLORS[i]} />
-            {i < MOCK_RECOVERY_FUNNEL.length - 1 && (
+            {i < stages.length - 1 && (
               <div className="flex justify-center my-1">
                 <ArrowDown size={12} style={{ color: 'var(--color-text-muted)' }} />
               </div>

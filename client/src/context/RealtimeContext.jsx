@@ -1,6 +1,5 @@
 import { createContext, useContext, useEffect, useState, useCallback, useRef } from 'react';
 import { wsService, WS_STATUS } from '../services/websocket';
-import { MOCK_LIVE_ACTIVITY, MOCK_NOTIFICATIONS, REALTIME_EVENT_TYPES } from '../data/mockData';
 
 /**
  * RealtimeContext — Centralized real-time event system for RevivePilot.
@@ -112,8 +111,8 @@ function eventToNotification(event) {
 }
 
 export function RealtimeProvider({ children }) {
-  const [events, setEvents]               = useState(MOCK_LIVE_ACTIVITY);
-  const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS);
+  const [events, setEvents]               = useState([]);
+  const [notifications, setNotifications] = useState([]);
   const [connectionStatus, setConnectionStatus] = useState(WS_STATUS.DISCONNECTED);
   const [demoMode, setDemoMode]           = useState(false);
   const subscribersRef                    = useRef(new Set());

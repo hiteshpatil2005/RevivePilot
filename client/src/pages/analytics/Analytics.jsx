@@ -141,17 +141,17 @@ export default function Analytics() {
     loading,
   } = useAnalytics(period);
 
-  const m = apiMetrics || MOCK_ANALYTICS_METRICS;
-  const chartData = (apiChart && apiChart.length > 0) ? apiChart : REVENUE_CHART_DATA[period];
-  const rateData = (apiRate && apiRate.length > 0) ? apiRate : MOCK_RECOVERY_RATE_DATA[period];
-  const stratData = (apiStrat && apiStrat.length > 0) ? apiStrat : MOCK_STRATEGY_PERFORMANCE;
-  const breakdownData = (apiBreakdown && apiBreakdown.length > 0) ? apiBreakdown : MOCK_REVENUE_BREAKDOWN;
-  const aiData = apiAi || MOCK_AI_EFFECTIVENESS;
+  const m = apiMetrics || {};
+  const chartData = (apiChart && apiChart.length > 0) ? apiChart : [];
+  const rateData = (apiRate && apiRate.length > 0) ? apiRate : [];
+  const stratData = (apiStrat && apiStrat.length > 0) ? apiStrat : [];
+  const breakdownData = (apiBreakdown && apiBreakdown.length > 0) ? apiBreakdown : [];
+  const aiData = apiAi || { accuracyOverall: 0, actionsThisMonth: 0, models: [] };
 
   const handleExport = () => {
     const csv = [
       'Period,At Risk,Expected Recovery,Actual Recovered',
-      ...chartData.map(d => `${d.label},${d.atRisk},${d.expected},${d.recovered}`)
+      ...chartData.map(d => `${d.date || d.label},${d.atRisk || 0},${d.expected || 0},${d.recovered || 0}`)
     ].join('\n');
     const blob = new Blob([csv], { type: 'text/csv' });
     const url = URL.createObjectURL(blob);
@@ -162,51 +162,57 @@ export default function Analytics() {
     URL.revokeObjectURL(url);
   };
 
+  const processedAmt = m.revenue_processed ? m.revenue_processed * 100 : (m.revenueProcessed ?? m.totalRevenueProcessed ?? 0);
+  const atRiskAmt = m.revenueAtRisk ?? (m.revenue_at_risk ? m.revenue_at_risk * 100 : 0);
+  const expectedAmt = m.expectedRecovery ?? (m.expected_recovery ? m.expected_recovery * 100 : 0);
+  const recoveredAmt = m.recoveredRevenue ?? (m.actual_recovered ? m.actual_recovered * 100 : (m.actualRecovered ?? 0));
+  const recRate = m.recoveryRate ?? m.recovery_rate ?? 0;
+
   const kpis = [
     {
       label: 'Total Volume Processed',
-      value: fmtAmount((m.totalRevenueProcessed || 128450000)),
-      delta: m.totalProcessedDelta || 8.2,
+      value: fmtAmount(processedAmt),
+      delta: m.totalProcessedDelta ?? 0,
       icon: DollarSign,
       color: '#0c6ff9',
       bgTint: 'rgba(12, 111, 249, 0.08)',
     },
     {
       label: 'Revenue At Risk',
-      value: fmtAmount((m.revenueAtRisk || 9684400)),
-      delta: m.atRiskDelta || -12.4,
+      value: fmtAmount(atRiskAmt),
+      delta: m.atRiskDelta ?? 0,
       icon: AlertCircle,
       color: '#ef4444',
       bgTint: 'rgba(239, 68, 68, 0.08)',
     },
     {
       label: 'Expected Recovery',
-      value: fmtAmount((m.expectedRecovery || 12000000)),
-      delta: m.expectedDelta || 4.1,
+      value: fmtAmount(expectedAmt),
+      delta: m.expectedDelta ?? 0,
       icon: Target,
       color: '#f59e0b',
       bgTint: 'rgba(245, 158, 11, 0.08)',
     },
     {
       label: 'Actual Recovered',
-      value: fmtAmount((m.actualRecovered || 2500000)),
-      delta: m.recoveredDelta || 18.7,
+      value: fmtAmount(recoveredAmt),
+      delta: m.recoveredDelta ?? 0,
       icon: TrendingUp,
       color: '#10b981',
       bgTint: 'rgba(16, 185, 129, 0.08)',
     },
     {
       label: 'Overall Recovery Rate',
-      value: `${m.recoveryRate || 74.9}%`,
-      delta: m.recoveryRateDelta || 3.8,
+      value: `${recRate}%`,
+      delta: m.recoveryRateDelta ?? 0,
       icon: BarChart3,
       color: '#0891b2',
       bgTint: 'rgba(8, 145, 178, 0.08)',
     },
     {
       label: 'Total Revenue Saved',
-      value: fmtAmount((m.revenueSaved || 4280000)),
-      delta: m.savedDelta || 15.2,
+      value: fmtAmount(recoveredAmt),
+      delta: m.savedDelta ?? 0,
       icon: ShieldCheck,
       color: '#10b981',
       bgTint: 'rgba(16, 185, 129, 0.08)',

@@ -52,22 +52,32 @@ export function useTransactions(params = {}) {
   // Listen to new transactions or failed payments created live
   useEffect(() => {
     const unsubscribe = subscribe((event) => {
-      if (!event?.type) return;
+      if (!event) return;
+      const evType = (event.type || event.event_type || event.event || '').toLowerCase();
 
-      if (event.type === REALTIME_EVENT_TYPES.PAYMENT_FAILED) {
+      if (evType === 'payment.failed' || evType === 'payment.created' || evType === 'payment.captured') {
+        const data = event.data || {};
+        const amount = Number(data.amount || 0);
+        const cust = data.customer || {
+          name: data.customer_name || data.customerName || 'Customer',
+          email: data.customer_email || data.customerEmail || '',
+        };
         const newTxn = {
-          id: event.data?.transactionId || `txn_demo_${Date.now()}`,
-          amount: event.data?.amount ? event.data.amount / 100 : 25000,
-          currency: 'INR',
-          status: 'failed',
-          paymentMethod: 'card',
-          failureCode: event.data?.failureCode || 'BANK_TIMEOUT',
-          failureReason: 'Payment gateway bank timeout',
-          customer: { name: 'Rahul Sharma', email: 'rahul.sharma@example.com' },
-          createdAt: new Date().toISOString(),
+          id: data.transaction_id || data.transactionId || data.id || `txn_${Date.now()}`,
+          amount: amount >= 1000 ? amount / 100 : amount,
+          currency: data.currency || 'INR',
+          status: evType === 'payment.captured' ? 'success' : (data.status || 'failed'),
+          paymentMethod: data.payment_method || data.paymentMethod || 'card',
+          failureCode: data.failure_code || data.failureCode || (evType === 'payment.failed' ? 'PAYMENT_FAILED' : null),
+          failureReason: data.failure_reason || data.failureReason || (evType === 'payment.failed' ? 'Transaction failed' : null),
+          customer: cust,
+          createdAt: data.created_at || data.createdAt || new Date().toISOString(),
           isLive: true,
         };
-        setTransactions((prev) => [newTxn, ...prev]);
+        setTransactions((prev) => {
+          const filtered = prev.filter(t => t.id !== newTxn.id);
+          return [newTxn, ...filtered];
+        });
       }
     });
 

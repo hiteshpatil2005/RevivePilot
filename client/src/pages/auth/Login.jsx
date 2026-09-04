@@ -1,6 +1,6 @@
 import { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, ArrowRight, AlertCircle, Mail, KeyRound, CheckCircle2, Zap } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { Eye, EyeOff, ArrowRight, AlertCircle, Mail, KeyRound } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import Spinner from '../../components/common/Spinner';
 
@@ -8,22 +8,17 @@ export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
 
-  const [form, setForm] = useState({ email: '', password: '' });
+  const [form, setForm] = useState({
+    email: 'hiteshpatil0205@gmail.com',
+    password: 'Hitesh@12345',
+  });
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
-  const [autofillSuccess, setAutofillSuccess] = useState(false);
 
   const handleChange = (e) => {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
-    if (error) setError('');
-  };
-
-  const handleAutofill = () => {
-    setForm({ email: 'demo@revivepilot.ai', password: 'demo123' });
-    setAutofillSuccess(true);
-    setTimeout(() => setAutofillSuccess(false), 2000);
     if (error) setError('');
   };
 
@@ -74,60 +69,8 @@ export default function Login() {
           Sign in to RevivePilot
         </h1>
         <p style={{ fontSize: '14px', color: '#6b7280' }}>
-          Enter your credentials to access the Recovery Cockpit.
+          Enter merchant credentials to access the Recovery Cockpit.
         </p>
-      </div>
-
-      {/* Demo credentials bar */}
-      <div
-        onClick={handleAutofill}
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          padding: '10px 14px',
-          borderRadius: '6px',
-          border: '1px solid #bfdbfe',
-          backgroundColor: '#eff6ff',
-          cursor: 'pointer',
-          marginBottom: '24px',
-          transition: 'border-color 0.15s',
-        }}
-      >
-        <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <Zap size={15} color="#0c6ff9" />
-          <div>
-            <p style={{ fontSize: '11px', fontWeight: '700', color: '#1e3a8a', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
-              Razorpay Buildathon Demo
-            </p>
-            <p style={{ fontSize: '12px', color: '#1d4ed8', fontFamily: 'monospace', marginTop: '1px' }}>
-              demo@revivepilot.ai · demo123
-            </p>
-          </div>
-        </div>
-        <button
-          type="button"
-          style={{
-            display: 'flex',
-            alignItems: 'center',
-            gap: '5px',
-            padding: '5px 12px',
-            borderRadius: '5px',
-            backgroundColor: '#0c6ff9',
-            color: '#ffffff',
-            fontSize: '12px',
-            fontWeight: '600',
-            border: 'none',
-            cursor: 'pointer',
-            fontFamily: 'inherit',
-          }}
-        >
-          {autofillSuccess ? (
-            <><CheckCircle2 size={12} /><span>Filled</span></>
-          ) : (
-            <><span>Autofill</span><ArrowRight size={12} /></>
-          )}
-        </button>
       </div>
 
       {/* Form */}
@@ -142,7 +85,7 @@ export default function Login() {
               name="email"
               type="email"
               autoComplete="email"
-              placeholder="admin@acme.com"
+              placeholder="hiteshpatil0205@gmail.com"
               value={form.email}
               onChange={handleChange}
               disabled={loading}
@@ -254,14 +197,6 @@ export default function Login() {
           )}
         </button>
       </form>
-
-      {/* Register link */}
-      <p style={{ textAlign: 'center', fontSize: '13px', color: '#6b7280', marginTop: '20px' }}>
-        New to RevivePilot?{' '}
-        <Link to="/register" style={{ color: '#0c6ff9', fontWeight: '600', textDecoration: 'none' }}>
-          Create an account
-        </Link>
-      </p>
     </div>
   );
 }

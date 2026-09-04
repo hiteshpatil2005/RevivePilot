@@ -17,6 +17,7 @@ from app.agents.strategy_agent import StrategyAgent
 from app.agents.action_agent import ActionAgent
 from app.events.publisher import EventPublisher, EventType
 from app.core.logging import logger
+from app.core.config import settings
 
 
 class AgentCoordinator:
@@ -212,6 +213,7 @@ class AgentCoordinator:
                     "decision": trace.decision,
                     "latency_ms": trace.latency_ms,
                     "tokens": trace.tokens_used,
+                    "model": trace.metadata.get("ai_model", settings.GEMINI_MODEL),
                 },
             )
             session.add(audit)

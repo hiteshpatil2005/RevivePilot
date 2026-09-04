@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip,
   ResponsiveContainer, Legend
 } from 'recharts';
-import { REVENUE_CHART_DATA } from '../../data/mockData';
+import { axiosInstance } from '../../services/api';
 import { useTheme } from '../../hooks/useTheme';
 
 const PERIODS = ['7D', '30D', '90D'];
@@ -23,7 +23,7 @@ function CustomTooltip({ active, payload, label }) {
             <span style={{ color: 'var(--color-text-secondary)' }}>{p.name}</span>
           </div>
           <span className="font-mono-data font-semibold" style={{ color: 'var(--color-text-primary)' }}>
-            ₹{p.value.toLocaleString('en-IN')}
+            ₹{(p.value || 0).toLocaleString('en-IN')}
           </span>
         </div>
       ))}
@@ -37,9 +37,31 @@ function CustomTooltip({ active, payload, label }) {
  */
 export default function RevenueRecoveryChart() {
   const [period, setPeriod] = useState('7D');
+  const [data, setData] = useState([]);
+  const [loading, setLoading] = useState(true);
   const { isDark } = useTheme();
 
-  const data = REVENUE_CHART_DATA[period];
+  useEffect(() => {
+    let mounted = true;
+    async function loadChartData() {
+      setLoading(true);
+      try {
+        const days = period === '90D' ? 90 : period === '30D' ? 30 : 7;
+        const res = await axiosInstance.get('/analytics/chart', { params: { days } });
+        if (mounted) {
+          setData(res.data || []);
+        }
+      } catch (err) {
+        console.warn('[RevenueRecoveryChart] Failed to load real chart data:', err);
+        if (mounted) setData([]);
+      } finally {
+        if (mounted) setLoading(false);
+      }
+    }
+    loadChartData();
+    return () => { mounted = false; };
+  }, [period]);
+
   const gridColor  = isDark ? '#1e293b' : '#e2e8f0';
   const axisColor  = isDark ? '#475569' : '#94a3b8';
 
@@ -99,7 +121,7 @@ export default function RevenueRecoveryChart() {
             </defs>
             <CartesianGrid strokeDasharray="3 3" stroke={gridColor} />
             <XAxis
-              dataKey="label"
+              dataKey="date"
               tick={{ fill: axisColor, fontSize: 11 }}
               axisLine={false}
               tickLine={false}

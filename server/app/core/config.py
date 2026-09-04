@@ -25,6 +25,7 @@ class Settings(BaseSettings):
     JWT_SECRET_KEY: str = "revivepilot-insecure-dev-secret-key-replace-in-production-min32"
     JWT_ALGORITHM: str = "HS256"
     ACCESS_TOKEN_EXPIRE_MINUTES: int = 60
+    ALLOW_MERCHANT_REGISTRATION: bool = False
 
     # CORS
     CORS_ORIGINS: Union[str, List[str]] = [
@@ -48,8 +49,14 @@ class Settings(BaseSettings):
     RAZORPAY_KEY_SECRET: str = "mock_secret"
     RAZORPAY_WEBHOOK_SECRET: str = "rzp_webhook_secret_dev"
 
-    # AI
-    GEMINI_API_KEY: str = "mock_gemini_key"
+    # AI & Multi-Agent Reasoning Pipeline (Google Gemini)
+    GEMINI_API_KEY: str = ""
+    GOOGLE_API_KEY: str = ""
+    GEMINI_MODEL: str = "gemini-2.5-flash"
+
+    @property
+    def active_gemini_api_key(self) -> str:
+        return self.GEMINI_API_KEY or self.GOOGLE_API_KEY or ""
 
     # SMTP Mailer Settings
     SMTP_HOST: str = "smtp.gmail.com"

@@ -26,7 +26,7 @@ export function useRecoveryCases(initialParams = {}) {
     } catch (err) {
       console.error('[useRecoveryCases] Failed to fetch cases:', err);
       setError(err.message || 'Failed to load recovery cases');
-      setCases(MOCK_RECOVERY_CASES);
+      setCases([]);
     } finally {
       setLoading(false);
     }
@@ -39,37 +39,49 @@ export function useRecoveryCases(initialParams = {}) {
   // Subscribe to real-time events for live list mutations
   useEffect(() => {
     const unsubscribe = subscribe((event) => {
-      if (!event?.type) return;
+      if (!event) return;
+      const evType = (event.type || event.event_type || event.event || '').toLowerCase();
+      const data = event.data || {};
+      const caseId = data.case_id || data.caseId || event.caseId || event.id;
 
-      if (event.type === REALTIME_EVENT_TYPES.RECOVERY_CASE_CREATED) {
+      if (
+        evType.includes('case.created') ||
+        evType.includes('recovery_case_created') ||
+        evType === 'payment.failed'
+      ) {
+        const amt = Number(data.amount || data.expected_recovery_amount || 0);
         const newCase = {
-          id: event.caseId || `RC-${Date.now().toString().slice(-5)}`,
-          customerId: 'cust_001',
-          transactionId: event.data?.transactionId || `txn_demo_${Date.now()}`,
-          amount: event.data?.amount ? event.data.amount / 100 : 25000,
-          rootCause: event.data?.failureCode || 'BANK_TIMEOUT',
-          riskScore: 88,
-          recoveryProbability: 85,
-          status: 'analyzing',
-          strategy: 'Delayed Retry',
-          createdAt: new Date().toISOString(),
+          id: caseId || `RC-${Date.now().toString().slice(-5)}`,
+          customerId: data.customer_id || data.customerId || null,
+          customer: data.customer || {
+            name: data.customer_name || data.customerName || 'Customer',
+            email: data.customer_email || data.customerEmail || '',
+          },
+          transactionId: data.transaction_id || data.transactionId || null,
+          amount: amt >= 1000 ? amt / 100 : amt,
+          expected_recovery_amount: amt >= 1000 ? amt / 100 : amt,
+          rootCause: data.failure_code || data.failureCode || data.failure_reason || 'BANK_TIMEOUT',
+          riskScore: data.risk_score ?? data.riskScore ?? 80,
+          recoveryProbability: data.recovery_probability ?? data.recoveryProbability ?? 75,
+          status: data.status || 'detected',
+          strategy: data.strategy || data.recommended_strategy || 'Smart Routing',
+          createdAt: data.created_at || data.createdAt || new Date().toISOString(),
           isLive: true,
         };
 
         setCases((prev) => [newCase, ...prev.filter((c) => c.id !== newCase.id)]);
       }
 
-      if (event.type === REALTIME_EVENT_TYPES.RECOVERY_CASE_UPDATED) {
-        const { caseId, status, strategy } = event.data || {};
-        if (caseId || event.caseId) {
-          const targetId = caseId || event.caseId;
+      if (evType.includes('case.updated') || evType.includes('recovery_case_updated')) {
+        const targetId = caseId;
+        if (targetId) {
           setCases((prev) =>
             prev.map((c) =>
               c.id === targetId
                 ? {
                     ...c,
-                    status: status || c.status,
-                    strategy: strategy || c.strategy,
+                    status: data.status || c.status,
+                    strategy: data.strategy || c.strategy,
                   }
                 : c
             )
@@ -77,8 +89,13 @@ export function useRecoveryCases(initialParams = {}) {
         }
       }
 
-      if (event.type === REALTIME_EVENT_TYPES.RECOVERY_SUCCESS) {
-        const targetId = event.caseId;
+      if (
+        evType.includes('success') ||
+        evType.includes('captured') ||
+        evType.includes('resolved') ||
+        evType.includes('recovery_success')
+      ) {
+        const targetId = caseId;
         if (targetId) {
           setCases((prev) =>
             prev.map((c) => (c.id === targetId ? { ...c, status: 'recovered' } : c))
@@ -86,8 +103,8 @@ export function useRecoveryCases(initialParams = {}) {
         }
       }
 
-      if (event.type === REALTIME_EVENT_TYPES.RECOVERY_FAILED) {
-        const targetId = event.caseId;
+      if (evType.includes('recovery_failed') || evType.includes('case.failed')) {
+        const targetId = caseId;
         if (targetId) {
           setCases((prev) =>
             prev.map((c) => (c.id === targetId ? { ...c, status: 'failed' } : c))
@@ -95,8 +112,8 @@ export function useRecoveryCases(initialParams = {}) {
         }
       }
 
-      if (event.type === REALTIME_EVENT_TYPES.POLICY_BLOCKED) {
-        const targetId = event.caseId;
+      if (evType.includes('policy_blocked') || evType.includes('case.stopped')) {
+        const targetId = caseId;
         if (targetId) {
           setCases((prev) =>
             prev.map((c) => (c.id === targetId ? { ...c, status: 'stopped' } : c))

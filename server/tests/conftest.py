@@ -9,6 +9,10 @@ from sqlalchemy.pool import StaticPool
 from app.database.base import Base
 from app.database.session import get_db
 from app.main import app
+from app.core.config import settings
+
+# Enable merchant registration in unit tests
+settings.ALLOW_MERCHANT_REGISTRATION = True
 
 # In-memory SQLite async engine for lightning-fast, zero-dependency unit tests
 TEST_DATABASE_URL = "sqlite+aiosqlite:///:memory:"

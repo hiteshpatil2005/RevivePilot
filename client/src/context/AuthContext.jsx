@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authApi } from '../services/authApi';
+import { wsService } from '../services/websocket';
 
 const AuthContext = createContext(null);
 
@@ -21,10 +22,12 @@ export function AuthProvider({ children }) {
           if (currentUser) {
             setUser(currentUser);
             setIsAuthenticated(true);
+            if (token) wsService.reconnectWithToken(token);
           } else if (stored) {
             const session = JSON.parse(stored);
             setUser(session.user);
             setIsAuthenticated(true);
+            if (token) wsService.reconnectWithToken(token);
           }
         }
       } catch (err) {
@@ -59,6 +62,8 @@ export function AuthProvider({ children }) {
         setUser(data.user);
         setIsAuthenticated(true);
         localStorage.setItem('revivepilot-session', JSON.stringify({ user: data.user }));
+        const currentToken = localStorage.getItem('revivepilot-token') || data.token || data.access_token;
+        if (currentToken) wsService.reconnectWithToken(currentToken);
         return { success: true };
       }
       return { success: false, error: 'Login failed' };
@@ -84,6 +89,8 @@ export function AuthProvider({ children }) {
         setUser(data.user);
         setIsAuthenticated(true);
         localStorage.setItem('revivepilot-session', JSON.stringify({ user: data.user }));
+        const currentToken = localStorage.getItem('revivepilot-token') || data.token || data.access_token;
+        if (currentToken) wsService.reconnectWithToken(currentToken);
         return { success: true };
       }
       return { success: false, error: 'Registration failed' };
@@ -105,6 +112,7 @@ export function AuthProvider({ children }) {
     await authApi.logout();
     setUser(null);
     setIsAuthenticated(false);
+    wsService.disconnect();
   }, []);
 
   return (

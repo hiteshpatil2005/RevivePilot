@@ -77,7 +77,7 @@ function AgentStatusCard({ agent }) {
       <div className="mt-4 pt-3 border-t border-slate-100 grid grid-cols-3 gap-2 text-center">
         <div className="p-1.5 rounded bg-slate-50/60">
           <p className="text-sm font-bold font-mono text-slate-900">
-            {(agent.tasksProcessed || agent.tasks_processed || 1420).toLocaleString()}
+            {(agent.tasksProcessed ?? agent.tasks_processed ?? 0).toLocaleString()}
           </p>
           <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mt-0.5">
             Tasks Run
@@ -85,7 +85,7 @@ function AgentStatusCard({ agent }) {
         </div>
         <div className="p-1.5 rounded bg-slate-50/60">
           <p className="text-sm font-bold font-mono text-emerald-700">
-            {agent.successRate || agent.success_rate || 98.4}%
+            {agent.successRate ?? agent.success_rate ?? 0}%
           </p>
           <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mt-0.5">
             Accuracy
@@ -93,7 +93,7 @@ function AgentStatusCard({ agent }) {
         </div>
         <div className="p-1.5 rounded bg-slate-50/60">
           <p className="text-sm font-bold font-mono text-cyan-700">
-            {agent.avgLatency || agent.avg_latency || '0.6s'}
+            {agent.avgLatency ?? agent.avg_latency ?? '0.0s'}
           </p>
           <p className="text-[10px] uppercase font-bold text-slate-500 tracking-wider mt-0.5">
             Avg Latency
@@ -155,7 +155,7 @@ function AgentActivityRow({ log }) {
 
 export default function AgentMonitor() {
   const [agents, setAgents] = useState(MOCK_AGENTS);
-  const [activities, setActivities] = useState(MOCK_AGENT_ACTIVITY);
+  const [activities, setActivities] = useState([]);
   const [refreshing, setRefreshing] = useState(false);
   const { connectionStatus } = useRealtime();
   const isConnected = connectionStatus === 'connected';
@@ -171,11 +171,11 @@ export default function AgentMonitor() {
       if (statusesRes.status === 'fulfilled' && Array.isArray(statusesRes.value) && statusesRes.value.length > 0) {
         setAgents(statusesRes.value);
       }
-      if (activityRes.status === 'fulfilled' && Array.isArray(activityRes.value) && activityRes.value.length > 0) {
+      if (activityRes.status === 'fulfilled' && Array.isArray(activityRes.value)) {
         setActivities(activityRes.value);
       }
     } catch {
-      // fallback to existing mock
+      // Keep real states
     } finally {
       setRefreshing(false);
     }
@@ -347,9 +347,15 @@ export default function AgentMonitor() {
         </div>
 
         <div className="divide-y divide-slate-100 bg-white">
-          {activities.map((log, i) => (
-            <AgentActivityRow key={log.id || i} log={log} />
-          ))}
+          {activities.length === 0 ? (
+            <div className="py-10 text-center text-slate-500 text-xs">
+              No recent agent execution logs. Live agent decisions will appear here automatically.
+            </div>
+          ) : (
+            activities.map((log, i) => (
+              <AgentActivityRow key={log.id || i} log={log} />
+            ))
+          )}
         </div>
       </div>
     </div>

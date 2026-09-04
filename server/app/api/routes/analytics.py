@@ -30,3 +30,15 @@ async def get_analytics_metrics(
     Retrieve granular revenue recovery performance indicators for the merchant.
     """
     return await AnalyticsService.get_dashboard_metrics(session, current_user.merchant_id)
+
+
+@router.get("/chart")
+async def get_analytics_chart(
+    days: int = 7,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """
+    Retrieve real daily revenue recovery time series for the merchant.
+    """
+    return await AnalyticsService.get_chart_data(session, current_user.merchant_id, days=days)

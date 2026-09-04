@@ -31,9 +31,10 @@ export const analyticsApi = {
   },
 
   async getRevenueChart(period = '7D') {
+    const days = period === '90D' ? 90 : period === '30D' ? 30 : 7;
     return withFallback(
-      () => axiosInstance.get('/analytics/revenue-chart', { params: { period } }),
-      REVENUE_CHART_DATA[period] || REVENUE_CHART_DATA['7D'],
+      () => axiosInstance.get('/analytics/chart', { params: { days } }),
+      [],
       'analyticsApi.getRevenueChart'
     );
   },

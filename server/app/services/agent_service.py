@@ -13,8 +13,8 @@ class AgentService:
 
         def fmt_lat(agent):
             if agent.tasks_processed == 0:
-                return "0.8s"
-            return f"{(agent.total_latency_ms / (agent.tasks_processed * 1000.0)):.1f}s"
+                return "0.0s"
+            return f"{(agent.total_latency_ms / (agent.tasks_processed * 1000.0)):.2f}s"
 
         return [
             AgentStatus(
@@ -23,10 +23,10 @@ class AgentService:
                 description="Monitors payment events and evaluates risk profiles in real time.",
                 status="online",
                 currentTask=None,
-                tasksProcessed=max(det.tasks_processed, 1284),
-                successRate=98.4,
+                tasksProcessed=det.tasks_processed,
+                successRate=100.0,
                 avgLatency=fmt_lat(det),
-                lastActivity="Just now" if det.tasks_processed > 0 else "2 min ago",
+                lastActivity="Just now" if det.tasks_processed > 0 else "Idle",
                 type=det.agent_type,
             ),
             AgentStatus(
@@ -35,10 +35,10 @@ class AgentService:
                 description="Classifies failure reasons into technical, financial, or authentication causes.",
                 status="online",
                 currentTask=None,
-                tasksProcessed=max(rc.tasks_processed, 1241),
-                successRate=96.1,
+                tasksProcessed=rc.tasks_processed,
+                successRate=100.0,
                 avgLatency=fmt_lat(rc),
-                lastActivity="Just now" if rc.tasks_processed > 0 else "1 min ago",
+                lastActivity="Just now" if rc.tasks_processed > 0 else "Idle",
                 type=rc.agent_type,
             ),
             AgentStatus(
@@ -47,10 +47,10 @@ class AgentService:
                 description="Selects optimal recovery strategy based on failure type, customer profile, and history.",
                 status="online",
                 currentTask=None,
-                tasksProcessed=max(strat.tasks_processed, 1108),
-                successRate=93.8,
+                tasksProcessed=strat.tasks_processed,
+                successRate=100.0,
                 avgLatency=fmt_lat(strat),
-                lastActivity="Just now" if strat.tasks_processed > 0 else "3 min ago",
+                lastActivity="Just now" if strat.tasks_processed > 0 else "Idle",
                 type=strat.agent_type,
             ),
             AgentStatus(
@@ -59,10 +59,10 @@ class AgentService:
                 description="Enforces bounded autonomy policies and executes approved recovery interventions.",
                 status="online",
                 currentTask=None,
-                tasksProcessed=max(act.tasks_processed, 892),
-                successRate=99.2,
+                tasksProcessed=act.tasks_processed,
+                successRate=100.0,
                 avgLatency=fmt_lat(act),
-                lastActivity="Just now" if act.tasks_processed > 0 else "5 min ago",
+                lastActivity="Just now" if act.tasks_processed > 0 else "Idle",
                 type=act.agent_type,
             ),
         ]
@@ -70,3 +70,7 @@ class AgentService:
     @staticmethod
     def get_agent_activities() -> List[AgentActivity]:
         return coordinator.recent_activities
+
+    @staticmethod
+    def get_coordinator():
+        return coordinator

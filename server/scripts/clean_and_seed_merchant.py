@@ -1,5 +1,6 @@
 import asyncio
 import uuid
+from decimal import Decimal
 from sqlalchemy import select, delete
 from app.database.session import async_session_maker
 from app.core.security import get_password_hash
@@ -19,41 +20,32 @@ BUSINESS_NAME = "RevivePilot Revenue Recovery"
 MERCHANT_PASSWORD = "Hitesh@12345"
 
 
-async def seed_database(force: bool = False):
+async def clean_and_seed():
     """
-    Seed development database with a clean single-merchant environment for Hitesh Patil.
-    Zero dummy transactions, zero dummy recovery cases, zero dummy customers.
+    Purges all dummy merchants, demo users, fake transactions, fake recovery cases,
+    and initializes the sole merchant and owner account for hiteshpatil0205@gmail.com.
     """
+    logger.info("Connecting to database to purge dummy data...")
     async with async_session_maker() as session:
-        existing_merchant = await session.scalar(
-            select(Merchant).where(Merchant.email == MERCHANT_EMAIL)
-        )
-        existing_user = await session.scalar(
-            select(User).where(User.email == MERCHANT_EMAIL)
-        )
+        # 1. Delete all existing merchants (cascades to users, customers, txns, cases, logs, policies)
+        existing_merchants = (await session.scalars(select(Merchant))).all()
+        for m in existing_merchants:
+            logger.info(f"Removing old merchant organization: {m.email} ({m.name})")
+            await session.delete(m)
+        await session.commit()
 
-        if (existing_merchant and existing_user) and not force:
-            logger.info(f"Database already configured for merchant ({MERCHANT_EMAIL}). Skipping.")
-            return
+        # Extra safety check on orphan records if cascade didn't catch external items
+        await session.execute(delete(AuditLog))
+        await session.execute(delete(Notification))
+        await session.execute(delete(RecoveryCase))
+        await session.execute(delete(Transaction))
+        await session.execute(delete(Customer))
+        await session.execute(delete(User))
+        await session.commit()
 
-        if force:
-            logger.info("Purging all existing merchants and dummy data...")
-            merchants = (await session.scalars(select(Merchant))).all()
-            for m in merchants:
-                await session.delete(m)
-            await session.commit()
+        logger.info("All dummy data successfully purged.")
 
-            await session.execute(delete(AuditLog))
-            await session.execute(delete(Notification))
-            await session.execute(delete(RecoveryCase))
-            await session.execute(delete(Transaction))
-            await session.execute(delete(Customer))
-            await session.execute(delete(User))
-            await session.commit()
-
-        logger.info(f"Configuring single merchant environment for {MERCHANT_EMAIL}...")
-
-        # 1. Primary Merchant
+        # 2. Create the primary Merchant
         merchant_id = uuid.uuid4()
         merchant = Merchant(
             id=merchant_id,
@@ -66,7 +58,7 @@ async def seed_database(force: bool = False):
         )
         session.add(merchant)
 
-        # 2. Primary Owner User
+        # 3. Create the primary Owner User
         owner = User(
             id=uuid.uuid4(),
             merchant_id=merchant_id,
@@ -78,7 +70,7 @@ async def seed_database(force: bool = False):
         )
         session.add(owner)
 
-        # 3. Standard Operational Recovery Policies
+        # 4. Standard operational recovery policies for the merchant engine
         operational_policies = [
             (
                 "Default Auto-Retry Policy",
@@ -129,8 +121,10 @@ async def seed_database(force: bool = False):
             )
 
         await session.commit()
-        logger.info(f"Database successfully configured for {MERCHANT_EMAIL} with zero dummy data.")
+        logger.info(
+            f"Successfully provisioned merchant {MERCHANT_EMAIL} and owner account with zero dummy data."
+        )
 
 
 if __name__ == "__main__":
-    asyncio.run(seed_database(force=True))
+    asyncio.run(clean_and_seed())

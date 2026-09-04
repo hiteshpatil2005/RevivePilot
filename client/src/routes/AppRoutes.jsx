@@ -5,7 +5,6 @@ import ProtectedRoute from './ProtectedRoute';
 
 // Auth pages
 import Login from '../pages/auth/Login';
-import Register from '../pages/auth/Register';
 
 // Dashboard pages (Part 1+2)
 import Dashboard from '../pages/dashboard/Dashboard';
@@ -49,7 +48,7 @@ export default function AppRoutes() {
       {/* Auth routes */}
       <Route element={<AuthLayout />}>
         <Route path="/login"    element={<Login />} />
-        <Route path="/register" element={<Register />} />
+        <Route path="/register" element={<Navigate to="/login" replace />} />
       </Route>
 
       {/* Protected dashboard routes */}

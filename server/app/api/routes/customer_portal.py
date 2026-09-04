@@ -65,6 +65,7 @@ async def simulate_customer_payment(
 
     payment_id = f"pay_{uuid.uuid4().hex[:12]}"
     raw_order_id = f"order_{uuid.uuid4().hex[:10]}"
+    order_id = raw_order_id
     display_order_id = f"{payload.item_name or 'Acme Cloud Compute Node'} ({raw_order_id})"
 
     if is_success:
@@ -154,7 +155,7 @@ async def simulate_customer_payment(
         merchant_id=merchant_id,
         customer_id=customer_id,
         external_payment_id=payment_id,
-        external_order_id=order_id,
+        external_order_id=display_order_id,
         amount=payload.amount,
         currency="INR",
         status=TransactionStatus.FAILED.value,

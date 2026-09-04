@@ -6,7 +6,6 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { useDashboard } from '../../hooks/useDashboard';
 import { useRecoveryCases } from '../../hooks/useRecoveryCases';
-import { MOCK_HIGH_PRIORITY, MOCK_CUSTOMERS } from '../../data/mockData';
 import StatusBadge from '../../components/common/StatusBadge';
 import RiskBadge from '../../components/common/RiskBadge';
 import SkeletonLoader from '../../components/common/SkeletonLoader';
@@ -28,14 +27,17 @@ export default function Dashboard() {
   const { cases } = useRecoveryCases();
 
   const recentCases = (cases || []).slice(0, 5);
+  const highPriorityCases = (cases || []).filter(
+    (c) => c.priority === 'high' || (c.riskScore ?? c.risk_score ?? 0) >= 80
+  );
 
   const kpis = metrics
     ? [
         {
           label: 'Revenue at Risk',
-          value: LAKHS(metrics.revenueAtRisk),
+          value: LAKHS(metrics.revenueAtRisk ?? 0),
           sub: 'Across active failure events',
-          delta: metrics.revenueAtRiskDelta || 12.4,
+          delta: metrics.revenueAtRiskDelta ?? 0,
           deltaLabel: 'vs previous period',
           icon: TrendingDown,
           color: '#ef4444',
@@ -43,9 +45,9 @@ export default function Dashboard() {
         },
         {
           label: 'Expected Recovery',
-          value: LAKHS(metrics.expectedRecovery),
-          sub: `${metrics.recoveryRate || 74.9}% recovery probability`,
-          delta: metrics.recoveryRateDelta || 4.1,
+          value: LAKHS(metrics.expectedRecovery ?? 0),
+          sub: `${metrics.recoveryRate ?? 0}% recovery probability`,
+          delta: metrics.recoveryRateDelta ?? 0,
           deltaLabel: 'rate improvement',
           icon: TrendingUp,
           color: '#0c6ff9',
@@ -53,9 +55,9 @@ export default function Dashboard() {
         },
         {
           label: 'Recovered Revenue',
-          value: LAKHS(metrics.recoveredRevenue),
+          value: LAKHS(metrics.recoveredRevenue ?? 0),
           sub: 'Successfully captured to account',
-          delta: metrics.recoveredDelta || 18.7,
+          delta: metrics.recoveredDelta ?? 0,
           deltaLabel: 'vs previous period',
           icon: TrendingUp,
           color: '#10b981',
@@ -63,15 +65,15 @@ export default function Dashboard() {
         },
         {
           label: 'Active Recovery Cases',
-          value: metrics.activeCases,
-          sub: `${metrics.highPriorityCases || 6} critical in queue`,
+          value: metrics.activeCases ?? 0,
+          sub: `${metrics.highPriorityCases ?? 0} critical in queue`,
           icon: Activity,
           color: '#f59e0b',
           bgTint: 'rgba(245, 158, 11, 0.08)',
         },
         {
           label: 'Avg Recovery Speed',
-          value: metrics.avgRecoveryTime || '7m 32s',
+          value: metrics.avgRecoveryTime || '0s',
           sub: 'Detection to settlement',
           icon: RefreshCcw,
           color: '#0891b2',
@@ -97,7 +99,7 @@ export default function Dashboard() {
             Real-time autonomous monitoring and payment gateway recovery telemetry
           </p>
           <p className="text-xs text-slate-500 font-medium">
-            Tenant: <strong className="text-slate-800">{user?.businessName || 'Acme Corporation'}</strong> · Region: <strong className="text-slate-800">ap-south-1 (Mumbai)</strong> · Node: <strong className="text-slate-800">Active</strong>
+            Tenant: <strong className="text-slate-800">{user?.businessName || user?.business_name || 'RevivePilot Enterprise'}</strong> · Region: <strong className="text-slate-800">ap-south-1 (Mumbai)</strong> · Node: <strong className="text-slate-800">Active</strong>
           </p>
         </div>
 
@@ -196,7 +198,7 @@ export default function Dashboard() {
           <RevenueRecoveryChart />
         </div>
         <div className="bg-white border border-slate-200 rounded-lg shadow-2xs p-1">
-          <RecoveryFunnel />
+          <RecoveryFunnel metrics={metrics} />
         </div>
       </div>
 
@@ -244,7 +246,9 @@ export default function Dashboard() {
                   </tr>
                 ) : (
                   recentCases.map((c) => {
-                    const customer = MOCK_CUSTOMERS.find((cu) => cu.id === c.customerId);
+                    const customerName = c.customer?.name || c.customer_name || c.customerName || 'Customer';
+                    const customerEmail = c.customer?.email || c.customer_email || c.customerEmail || '—';
+                    const amountVal = Number(c.amount || c.expected_recovery_amount || 0);
                     return (
                       <tr
                         key={c.id}
@@ -256,20 +260,20 @@ export default function Dashboard() {
                         </td>
                         <td className="px-6 py-4">
                           <p className="font-semibold text-slate-900">
-                            {customer?.name ?? 'Customer'}
+                            {customerName}
                           </p>
                           <p className="text-[11px] text-slate-500 mt-0.5">
-                            {customer?.email ?? '—'}
+                            {customerEmail}
                           </p>
                         </td>
                         <td className="px-6 py-4 font-mono font-bold text-slate-900 text-sm">
-                          ₹{c.amount.toLocaleString('en-IN')}.00
+                          ₹{amountVal.toLocaleString('en-IN')}.00
                         </td>
                         <td className="px-6 py-4">
-                          <RiskBadge score={c.riskScore} />
+                          <RiskBadge score={c.riskScore ?? c.risk_score ?? 0} />
                         </td>
                         <td className="px-6 py-4 text-slate-800 font-medium">
-                          {c.strategy}
+                          {c.strategy || c.recommended_strategy || 'Smart Routing'}
                         </td>
                         <td className="px-6 py-4">
                           <StatusBadge status={c.status} />
@@ -286,7 +290,7 @@ export default function Dashboard() {
         {/* Right (1 col): Critical Escalation Queue & Live Telemetry Feed */}
         <div className="space-y-6">
           {/* Critical Escalation Queue (100% White Background) */}
-          {MOCK_HIGH_PRIORITY.length > 0 && (
+          {highPriorityCases.length > 0 && (
             <div className="bg-white border border-slate-200 rounded-lg shadow-2xs overflow-hidden">
               <div className="flex items-center gap-2 px-5 py-3.5 border-b border-slate-200 bg-red-50/60">
                 <AlertTriangle size={15} className="text-red-600 flex-shrink-0" />
@@ -296,24 +300,30 @@ export default function Dashboard() {
               </div>
 
               <div className="divide-y divide-slate-100 bg-white">
-                {MOCK_HIGH_PRIORITY.slice(0, 3).map((c) => (
-                  <div
-                    key={c.id}
-                    onClick={() => navigate(`/recovery/${c.id}`)}
-                    className="p-4 hover:bg-slate-50/80 cursor-pointer transition-colors text-xs bg-white"
-                  >
-                    <div className="flex items-center justify-between mb-1">
-                      <span className="font-bold text-slate-900 text-sm">{c.customer}</span>
-                      <span className="font-mono font-bold text-red-600 text-sm">
-                        ₹{c.amount.toLocaleString('en-IN')}
-                      </span>
+                {highPriorityCases.slice(0, 3).map((c) => {
+                  const cName = c.customer?.name || c.customer_name || c.customerName || 'Customer';
+                  const cAmt = Number(c.amount || c.expected_recovery_amount || 0);
+                  const risk = c.riskScore ?? c.risk_score ?? 0;
+                  const recProb = c.recoveryProbability ?? c.recovery_probability ?? 0;
+                  return (
+                    <div
+                      key={c.id}
+                      onClick={() => navigate(`/recovery/${c.id}`)}
+                      className="p-4 hover:bg-slate-50/80 cursor-pointer transition-colors text-xs bg-white"
+                    >
+                      <div className="flex items-center justify-between mb-1">
+                        <span className="font-bold text-slate-900 text-sm">{cName}</span>
+                        <span className="font-mono font-bold text-red-600 text-sm">
+                          ₹{cAmt.toLocaleString('en-IN')}
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs text-slate-500 mt-1">
+                        <span>Risk: <strong className="text-slate-700">{risk}%</strong> · Recovery: <strong className="text-emerald-700">{recProb}%</strong></span>
+                        <StatusBadge status={c.status} size="sm" />
+                      </div>
                     </div>
-                    <div className="flex items-center justify-between text-xs text-slate-500 mt-1">
-                      <span>Risk: <strong className="text-slate-700">{c.riskScore}%</strong> · Recovery: <strong className="text-emerald-700">{c.recoveryProbability}%</strong></span>
-                      <StatusBadge status={c.status} size="sm" />
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}

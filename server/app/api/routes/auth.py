@@ -7,6 +7,7 @@ from app.models.user import User
 from app.models.merchant import Merchant
 from app.schemas.auth import UserRegister, UserLogin, TokenResponse, UserResponse
 from app.services.auth_service import AuthService
+from app.core.config import settings
 
 router = APIRouter(prefix="/auth", tags=["Authentication"])
 
@@ -18,8 +19,13 @@ async def register(
 ):
     """
     Register a new merchant and owner account.
-    Atomically creates the merchant organization and its root administrator.
+    Disabled in single-merchant production mode.
     """
+    if not settings.ALLOW_MERCHANT_REGISTRATION:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Merchant self-registration is disabled. Contact system administrator.",
+        )
     user, token = await AuthService.register(session, data)
     user_resp = AuthService.format_user_response(user, business_name=data.resolved_business_name)
     return TokenResponse(
