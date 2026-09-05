@@ -66,8 +66,27 @@ export const userApi = {
   },
 
   /**
-   * Execute simulated recovery retry.
-   * Scoped strictly to authenticated customer ownership.
+   * Send context / response in customer recovery chat.
+   */
+  async sendCustomerRecoveryChat(caseId, { message, selectedOption }) {
+    const res = await client.post(`/customer/recovery/${caseId}/chat`, {
+      message: message || undefined,
+      selected_option: selectedOption || undefined,
+    });
+    return res.data;
+  },
+
+  /**
+   * Fetch customer recovery conversation history.
+   */
+  async getCustomerConversation(caseId) {
+    const res = await client.get(`/customer/recovery/${caseId}/conversation`);
+    return res.data;
+  },
+
+  /**
+   * Customer confirms retry when ready to continue.
+   * Executes verified settlement.
    */
   async retryRecovery(caseId) {
     const res = await client.post(`/customer/recovery/${caseId}/retry`);
@@ -87,6 +106,22 @@ export const userApi = {
    */
   async getCustomerOrders() {
     const res = await client.get('/customer/orders');
+    return res.data;
+  },
+
+  /**
+   * Retrieve smart recovery link details by secure token.
+   */
+  async getRecoveryLinkDetails(token) {
+    const res = await client.get(`/customer/recovery/link/${token}`);
+    return res.data;
+  },
+
+  /**
+   * Settle payment via smart recovery link.
+   */
+  async payRecoveryLink(token, method = 'UPI') {
+    const res = await client.post(`/customer/recovery/link/${token}/pay`, { method });
     return res.data;
   },
 

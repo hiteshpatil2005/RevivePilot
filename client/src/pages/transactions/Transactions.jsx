@@ -1,8 +1,10 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useNavigate } from 'react-router-dom';
 import {
   CreditCard, ChevronRight, X, ChevronLeft, AlertCircle, RefreshCw,
-  ExternalLink, ArrowRight, CheckCircle2, ShieldCheck
+  ExternalLink, ArrowRight, CheckCircle2, ShieldCheck, Copy, Check,
+  Code, User, Globe, Hash
 } from 'lucide-react';
 import { useTransactions } from '../../hooks/useTransactions';
 import SearchInput from '../../components/common/SearchInput';
@@ -42,119 +44,235 @@ function fmtDateTime(iso) {
 }
 
 function TransactionDrawer({ txn, onClose, navigate }) {
+  const [copied, setCopied] = useState(false);
+  const [showRaw, setShowRaw] = useState(false);
+
+  useEffect(() => {
+    if (!txn) return;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener('keydown', handleKeyDown);
+    };
+  }, [txn, onClose]);
+
   if (!txn) return null;
+
   const customer = txn.customer || {};
   const amt = Number(txn.amount || 0);
   const paymentId = txn.external_payment_id || txn.externalPaymentId || txn.id;
   const statusStr = String(txn.status || 'PENDING').toUpperCase();
 
-  return (
-    <>
-      {/* Backdrop */}
+  const handleCopyId = () => {
+    if (!paymentId) return;
+    navigator.clipboard?.writeText(paymentId);
+    setCopied(true);
+    setTimeout(() => setCopied(false), 1800);
+  };
+
+  return createPortal(
+    <div className="fixed inset-0 z-[9999] flex justify-end">
+      {/* Full Viewport Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-slate-900/40 backdrop-blur-[2px]"
+        className="fixed inset-0 bg-slate-900/50 backdrop-blur-xs transition-opacity duration-200"
         onClick={onClose}
         aria-hidden="true"
       />
-      {/* Drawer Panel */}
-      <div className="fixed top-0 right-0 h-full w-full max-w-md z-50 overflow-y-auto bg-white border-l border-slate-200 shadow-2xl animate-in slide-in-from-right duration-200 flex flex-col justify-between">
-        <div>
-          {/* Drawer Header */}
-          <div className="sticky top-0 flex items-center justify-between px-6 py-4.5 bg-white border-b border-slate-200 z-10">
+
+      {/* Slide-over Drawer Panel */}
+      <div
+        className="relative z-10 h-screen w-full max-w-lg bg-white border-l border-slate-200 shadow-2xl flex flex-col justify-between overflow-hidden animate-slide-in-right"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="drawer-payment-id"
+      >
+        {/* Drawer Header */}
+        <div className="flex-shrink-0 flex items-center justify-between px-6 py-4 bg-white border-b border-slate-200">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-lg bg-blue-50 border border-blue-200 flex items-center justify-center text-[#0c6ff9]">
+              <ShieldCheck size={18} />
+            </div>
             <div>
-              <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500">
+              <p className="text-[10px] font-bold uppercase tracking-wider text-slate-500">
                 Payment Telemetry
               </p>
-              <p className="font-mono text-base font-bold text-slate-900 mt-0.5">
-                {paymentId}
-              </p>
+              <div className="flex items-center gap-2 mt-0.5">
+                <span id="drawer-payment-id" className="font-mono text-sm font-bold text-slate-900 select-all">
+                  {paymentId}
+                </span>
+                <button
+                  type="button"
+                  onClick={handleCopyId}
+                  className="p-1 text-slate-400 hover:text-slate-700 rounded hover:bg-slate-100 transition-colors cursor-pointer"
+                  title="Copy payment ID"
+                >
+                  {copied ? <Check size={13} className="text-emerald-600" /> : <Copy size={13} />}
+                </button>
+              </div>
             </div>
+          </div>
+          <div className="flex items-center gap-2">
+            <span className="text-[10px] text-slate-400 font-mono hidden sm:inline-block px-1.5 py-0.5 rounded bg-slate-100 border border-slate-200">
+              ESC
+            </span>
             <button
               type="button"
               onClick={onClose}
               className="w-8 h-8 rounded-lg flex items-center justify-center hover:bg-slate-100 text-slate-500 hover:text-slate-800 transition-colors cursor-pointer"
               aria-label="Close drawer"
             >
-              <X size={17} />
+              <X size={18} />
             </button>
           </div>
+        </div>
 
-          <div className="p-6 space-y-5">
-            {/* Amount Banner */}
-            <div className="p-4 rounded-lg bg-slate-50 border border-slate-200 flex items-center justify-between">
-              <div>
-                <span className="text-[11px] uppercase font-bold text-slate-500 tracking-wider">
-                  Transaction Amount
-                </span>
-                <p className="text-2xl font-bold font-mono text-slate-900 mt-0.5">
-                  ₹{amt.toLocaleString('en-IN')}.00
-                </p>
-              </div>
+        {/* Drawer Scrollable Body */}
+        <div className="flex-1 overflow-y-auto p-6 space-y-5">
+          {/* Amount Hero Card */}
+          <div className="p-4.5 rounded-xl bg-slate-50 border border-slate-200 flex items-center justify-between">
+            <div>
+              <span className="text-[11px] uppercase font-bold text-slate-500 tracking-wider">
+                Transaction Amount
+              </span>
+              <p className="text-2xl font-bold font-mono text-slate-900 mt-0.5">
+                ₹{amt.toLocaleString('en-IN')}.00
+              </p>
+              <p className="text-[11px] text-slate-500 mt-0.5">
+                Currency: <span className="font-semibold text-slate-700">{txn.currency || 'INR'}</span>
+              </p>
+            </div>
+            <div className="flex flex-col items-end gap-1.5">
               <StatusBadge status={txn.status} />
+              <span className="text-[10px] text-slate-500">
+                {fmtDateTime(txn.created_at || txn.createdAt)}
+              </span>
             </div>
+          </div>
 
-            {/* Customer Information */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Customer Information
-              </h4>
-              <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 text-xs">
-                <div className="p-3 flex justify-between">
-                  <span className="text-slate-500">Name</span>
-                  <span className="font-semibold text-slate-900">{customer.name || txn.customer_name || 'Customer'}</span>
+          {/* Customer Information */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wider">
+              <User size={14} className="text-slate-500" />
+              <span>Customer Information</span>
+            </div>
+            <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 text-xs overflow-hidden bg-white">
+              <div className="p-3 flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Name</span>
+                <span className="font-semibold text-slate-900">{customer.name || txn.customer_name || 'Customer'}</span>
+              </div>
+              <div className="p-3 flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Email</span>
+                <span className="font-mono text-slate-800">{customer.email || txn.customer_email || '—'}</span>
+              </div>
+              {(customer.phone || txn.customer_phone) && (
+                <div className="p-3 flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Phone</span>
+                  <span className="font-mono text-slate-800">{customer.phone || txn.customer_phone}</span>
                 </div>
-                <div className="p-3 flex justify-between">
-                  <span className="text-slate-500">Email</span>
-                  <span className="font-mono text-slate-800">{customer.email || txn.customer_email || '—'}</span>
+              )}
+            </div>
+          </div>
+
+          {/* Gateway Metadata */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 text-xs font-bold text-slate-800 uppercase tracking-wider">
+              <CreditCard size={14} className="text-slate-500" />
+              <span>Gateway Metadata</span>
+            </div>
+            <div className="border border-slate-200 rounded-xl divide-y divide-slate-100 text-xs overflow-hidden bg-white">
+              <div className="p-3 flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Payment Method</span>
+                <span className="font-semibold text-slate-900">
+                  {METHOD_LABELS[txn.payment_method || txn.paymentMethod || 'CARD'] || 'Card'}
+                </span>
+              </div>
+              {txn.external_order_id && (
+                <div className="p-3 flex justify-between items-center">
+                  <span className="text-slate-500 font-medium">Order Reference</span>
+                  <span className="font-mono text-slate-800">{txn.external_order_id}</span>
                 </div>
-                {customer.phone && (
-                  <div className="p-3 flex justify-between">
-                    <span className="text-slate-500">Phone</span>
-                    <span className="font-mono text-slate-800">{customer.phone}</span>
-                  </div>
-                )}
+              )}
+              <div className="p-3 flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Gateway Provider</span>
+                <span className="font-semibold text-[#0c6ff9]">Razorpay Payments Network</span>
+              </div>
+              <div className="p-3 flex justify-between items-center">
+                <span className="text-slate-500 font-medium">Created Timestamp</span>
+                <span className="text-slate-700">{fmtDateTime(txn.created_at || txn.createdAt)}</span>
               </div>
             </div>
+          </div>
 
-            {/* Gateway Metadata */}
-            <div className="space-y-2">
-              <h4 className="text-xs font-bold text-slate-800 uppercase tracking-wider">
-                Gateway Metadata
-              </h4>
-              <div className="border border-slate-200 rounded-lg divide-y divide-slate-100 text-xs">
-                <div className="p-3 flex justify-between">
-                  <span className="text-slate-500">Payment Method</span>
-                  <span className="font-semibold text-slate-900">
-                    {METHOD_LABELS[txn.payment_method || txn.paymentMethod || 'CARD'] || 'Card'}
-                  </span>
-                </div>
-                <div className="p-3 flex justify-between">
-                  <span className="text-slate-500">Currency</span>
-                  <span className="font-mono font-semibold text-slate-900">{txn.currency || 'INR'}</span>
-                </div>
-                <div className="p-3 flex justify-between">
-                  <span className="text-slate-500">Created Timestamp</span>
-                  <span className="text-slate-700">{fmtDateTime(txn.created_at || txn.createdAt)}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Failure Reason */}
-            {(txn.failure_reason || txn.failureReason) && (
-              <div className="p-4 rounded-lg bg-red-50 border border-red-200 space-y-1 text-xs">
+          {/* Failure Diagnostics if Failed */}
+          {(txn.failure_reason || txn.failureReason) && (
+            <div className="p-4 rounded-xl bg-red-50/80 border border-red-200 space-y-2 text-xs">
+              <div className="flex items-center gap-2">
+                <AlertCircle size={16} className="text-red-600 flex-shrink-0" />
                 <p className="font-bold text-red-900 uppercase tracking-wider text-[11px]">
                   Payment Failure Diagnostics
                 </p>
-                <p className="font-mono font-semibold text-red-700">
-                  {txn.failure_reason || txn.failureReason}
+              </div>
+              <div className="p-2.5 rounded bg-white/80 border border-red-200/60 font-mono text-xs font-bold text-red-700">
+                {txn.failure_reason || txn.failureReason}
+              </div>
+              <p className="text-[11px] text-red-700 leading-relaxed">
+                Telemetry captured by RevivePilot autonomous recovery engine. An active recovery case has been initiated to resolve this payment issue.
+              </p>
+            </div>
+          )}
+
+          {/* Settled Confirmation if SUCCESS */}
+          {statusStr === 'SUCCESS' && (
+            <div className="p-4 rounded-xl bg-emerald-50/80 border border-emerald-200 flex items-start gap-3 text-xs">
+              <CheckCircle2 size={16} className="text-emerald-600 flex-shrink-0 mt-0.5" />
+              <div>
+                <p className="font-bold text-emerald-900">Payment Settled &amp; Verified</p>
+                <p className="text-[11px] text-emerald-700 mt-0.5 leading-relaxed">
+                  Funds successfully captured via Razorpay Priority Rail. No manual intervention required.
                 </p>
               </div>
+            </div>
+          )}
+
+          {/* Collapsible Raw Telemetry Inspector */}
+          <div className="border border-slate-200 rounded-xl overflow-hidden bg-white">
+            <button
+              type="button"
+              onClick={() => setShowRaw(r => !r)}
+              className="w-full text-xs font-semibold text-slate-700 hover:text-slate-900 flex items-center justify-between p-3.5 bg-slate-50 hover:bg-slate-100/80 cursor-pointer transition-colors"
+            >
+              <div className="flex items-center gap-2">
+                <Code size={14} className="text-slate-500" />
+                <span>Raw Gateway Telemetry</span>
+              </div>
+              <span className="text-[11px] font-mono text-blue-600">
+                {showRaw ? 'Collapse ▲' : 'Inspect JSON ▼'}
+              </span>
+            </button>
+            {showRaw && (
+              <pre className="p-3.5 bg-slate-900 text-slate-200 font-mono text-[11px] overflow-x-auto max-h-56 border-t border-slate-200">
+                {JSON.stringify(txn, null, 2)}
+              </pre>
             )}
           </div>
         </div>
 
         {/* Drawer Footer Action */}
-        <div className="p-6 border-t border-slate-200 bg-slate-50">
+        <div className="flex-shrink-0 p-4 px-6 border-t border-slate-200 bg-slate-50 flex items-center justify-between gap-3">
+          <button
+            type="button"
+            onClick={onClose}
+            className="h-9 px-4 rounded-md border border-slate-300 bg-white text-xs font-semibold text-slate-700 hover:bg-slate-100 transition-colors cursor-pointer"
+          >
+            Close
+          </button>
           {statusStr === 'FAILED' ? (
             <button
               type="button"
@@ -162,20 +280,21 @@ function TransactionDrawer({ txn, onClose, navigate }) {
                 onClose();
                 navigate(`/recovery/${txn.recoveryCase || paymentId}`);
               }}
-              className="w-full h-10 rounded-md bg-[#0c6ff9] hover:bg-[#005ad4] text-white text-xs font-bold flex items-center justify-center gap-2 transition-all shadow-sm cursor-pointer"
+              className="h-9 px-4 rounded-md bg-[#0c6ff9] hover:bg-[#005ad4] text-white text-xs font-bold flex items-center gap-2 transition-all shadow-sm cursor-pointer"
             >
-              <span>View in Recovery Center</span>
+              <span>Open in Recovery Center</span>
               <ArrowRight size={14} />
             </button>
           ) : (
-            <div className="text-center text-xs text-slate-500 flex items-center justify-center gap-1.5 font-medium">
-              <CheckCircle2 size={14} className="text-emerald-600" />
-              <span>Payment settled and verified</span>
+            <div className="flex items-center gap-1.5 text-xs text-emerald-700 font-semibold">
+              <CheckCircle2 size={15} className="text-emerald-600" />
+              <span>Settled on Priority Rail</span>
             </div>
           )}
         </div>
       </div>
-    </>
+    </div>,
+    document.body
   );
 }
 
@@ -244,14 +363,14 @@ export default function Transactions() {
         {/* Clean Production Toolbar */}
         <div className="flex items-center gap-3 flex-shrink-0">
           <a
-            href="http://localhost:5174"
+            href="http://localhost:3001"
             target="_blank"
             rel="noreferrer"
             className="h-9 px-4 rounded text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-[#0c6ff9] hover:border-[#0c6ff9] flex items-center gap-2 transition-all shadow-2xs"
-            title="Open customer checkout portal on port 5174"
+            title="Open customer checkout portal on port 3001"
           >
             <ExternalLink size={14} className="text-[#0c6ff9]" />
-            <span>Customer Store (:5174)</span>
+            <span>Customer Store (:3001)</span>
           </a>
 
           <button

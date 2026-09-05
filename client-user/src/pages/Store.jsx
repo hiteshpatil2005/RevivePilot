@@ -119,7 +119,7 @@ export default function Store() {
         <div className="bg-[#eff6fc] border border-[#c7e0f4] rounded p-3 flex items-start gap-3 text-xs text-[#004578]">
           <Info size={16} className="text-[#0078d4] flex-shrink-0 mt-0.5" />
           <div className="flex-1 leading-relaxed">
-            <span className="font-semibold">Razorpay Buildathon Environment:</span> All checkouts use Razorpay test mode. You can simulate normal captures or trigger banking timeout bottlenecks. Failure events are ingested by RevivePilot on <strong className="font-semibold">Port 5173</strong>.
+            <span className="font-semibold">Razorpay Buildathon Environment:</span> All checkouts use Razorpay test mode. You can simulate normal captures or trigger banking timeout bottlenecks. Failure events are ingested by RevivePilot on <strong className="font-semibold">Port 3000</strong>.
           </div>
         </div>
 

@@ -26,6 +26,7 @@ export default function App() {
                 <Route path="/orders" element={<Orders />} />
                 <Route path="/profile" element={<CustomerProfile />} />
                 <Route path="/pay/:caseId" element={<RecoveryPay />} />
+                <Route path="/pay/recover" element={<RecoveryPay />} />
               </Routes>
             </main>
 
@@ -38,16 +39,16 @@ export default function App() {
                 </p>
                 <div className="flex items-center gap-3 text-[11px] text-slate-500">
                   <span className="font-mono-code text-[#0078d4] font-medium">
-                    Port 5174 (Customer Portal)
+                    Port 3001 (Customer Portal)
                   </span>
                   <span>•</span>
                   <a
-                    href="http://localhost:5173"
+                    href="http://localhost:3000"
                     target="_blank"
                     rel="noreferrer"
                     className="text-[#0078d4] hover:underline flex items-center gap-1 font-medium"
                   >
-                    <span>Merchant Cockpit (:5173)</span>
+                    <span>Merchant Cockpit (:3000)</span>
                     <span className="text-[10px]">↗</span>
                   </a>
                 </div>

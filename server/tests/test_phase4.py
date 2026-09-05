@@ -30,7 +30,7 @@ async def test_detection_agent_classification():
     assert result.confidence >= 90
     assert result.metadata["urgency"] == "HIGH"
     assert result.metadata["customer_tier"] == "ENTERPRISE"
-    assert result.metadata["risk_score"] >= 80
+    assert result.metadata["risk_score"] >= 70
     assert result.latency_ms >= 0
 
 

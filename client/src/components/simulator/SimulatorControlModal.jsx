@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { X, Play, Square, RefreshCw, Zap, ShieldAlert, CheckCircle2, Sliders } from 'lucide-react';
 import { paymentApi } from '../../services/paymentApi';
 
@@ -123,7 +124,7 @@ export default function SimulatorControlModal({ isOpen, onClose }) {
 
   if (!isOpen) return null;
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
       <div
         className="w-full max-w-2xl rounded-2xl overflow-hidden shadow-2xl flex flex-col max-h-[90vh]"
@@ -315,6 +316,7 @@ export default function SimulatorControlModal({ isOpen, onClose }) {
           </div>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

@@ -11,6 +11,8 @@ from app.models.policy import Policy
 from app.models.audit_log import AuditLog
 from app.models.notification import Notification
 from app.models.payment_event import PaymentEvent
+from app.models.agent_execution import AgentExecution
+from app.models.recovery_conversation import RecoveryConversation
 
 __all__ = [
     "Merchant",
@@ -25,4 +27,6 @@ __all__ = [
     "AuditLog",
     "Notification",
     "PaymentEvent",
+    "AgentExecution",
+    "RecoveryConversation",
 ]

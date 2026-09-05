@@ -91,7 +91,7 @@ export default function Sidebar({ collapsed, onToggle }) {
             </p>
           )}
           <a
-            href="http://localhost:5174"
+            href="http://localhost:3001"
             target="_blank"
             rel="noreferrer"
             title={collapsed ? 'Customer Store' : undefined}

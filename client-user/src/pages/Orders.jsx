@@ -3,7 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import {
   RefreshCw, Search, ArrowRight, ShieldCheck, Download,
   CheckCircle2, AlertCircle, Clock, ExternalLink, Plus, Filter,
-  LogIn, Receipt
+  LogIn, Receipt, Bot, Hourglass
 } from 'lucide-react';
 import { useCustomerAuth } from '../context/CustomerAuthContext';
 
@@ -272,6 +272,11 @@ export default function Orders() {
                     const orderId = order.id || order.payment_id || order.paymentId || `INV-2026-${idx + 100}`;
                     const itemName = order.itemName || order.item_name || 'Acme Cloud Compute Service';
                     const caseId = order.caseId || order.case_id || order.id;
+                    // Agent-driven fields — only truthy when the AI explicitly decided to generate a link
+                    const hasRecoveryLink = !!(order.has_recovery_link || order.hasRecoveryLink);
+                    const recoveryUrl = order.recovery_url || order.recoveryUrl;
+                    const agentAction = order.agent_action || order.agentAction;
+                    const agentStrategy = order.agent_strategy || order.agentStrategy;
 
                     return (
                       <tr key={orderId + idx} className="transition-colors">
@@ -324,20 +329,39 @@ export default function Orders() {
                                   {order.failureReason || order.failure_reason}
                                 </p>
                               )}
+                              {agentStrategy && (
+                                <p className="text-[10px] text-slate-500 pl-2 flex items-center gap-1">
+                                  <Bot size={9} />
+                                  <span>Agent: {agentStrategy.replace(/_/g, ' ')}</span>
+                                </p>
+                              )}
                             </div>
                           )}
                         </td>
 
-                        {/* Action Column */}
-                        <td style={{ minWidth: '160px', textAlign: 'right' }}>
-                          {isFailed ? (
+                        {/* Action Column — fully agent-driven */}
+                        <td style={{ minWidth: '180px', textAlign: 'right' }}>
+                          {isFailed && hasRecoveryLink && recoveryUrl ? (
+                            /* Agent APPROVED recovery link → show Pay button */
                             <Link
-                              to={`/pay/${caseId}`}
+                              to={recoveryUrl}
                               className="inline-flex items-center justify-center gap-1.5 whitespace-nowrap px-3 py-1.5 bg-[#0078d4] hover:bg-[#106ebe] text-white text-xs font-semibold rounded shadow-2xs transition-colors"
                             >
                               <span>Pay Recovery Link</span>
                               <ArrowRight size={12} />
                             </Link>
+                          ) : isFailed ? (
+                            /* Agent is still analyzing / chose a non-link strategy */
+                            <span className="inline-flex items-center gap-1.5 px-2.5 py-1.5 bg-amber-50 border border-amber-200 rounded text-[11px] font-semibold text-amber-700 whitespace-nowrap">
+                              <Bot size={12} className="shrink-0" />
+                              <span>Agent Analyzing</span>
+                              <span className="inline-block w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
+                            </span>
+                          ) : isRecovered ? (
+                            <span className="inline-flex items-center gap-1 text-xs text-emerald-600 font-semibold pr-2">
+                              <CheckCircle2 size={13} />
+                              Recovered
+                            </span>
                           ) : (
                             <span className="text-xs text-slate-400 font-medium pr-2">Settled</span>
                           )}

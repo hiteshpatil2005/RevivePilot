@@ -1,5 +1,5 @@
 import uuid
-from typing import Optional
+from typing import Optional, List, Dict, Any
 from fastapi import APIRouter, Depends, Query, HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -13,11 +13,13 @@ from app.schemas.recovery import (
     RecoveryCaseResponse,
     RecoveryCaseListResponse,
     RecoveryCaseActionRequest,
+    MerchantChatRequest,
+    MerchantChatResponse,
+    StrategyApprovalRequest,
 )
 from app.services.recovery_service import RecoveryService
 from app.agents.schemas import MultiAgentAnalysisResponse
 from app.agents.coordinator import coordinator
-from app.payments.razorpay_client import RazorpayClient
 
 router = APIRouter(prefix="/recovery", tags=["Recovery Cases"])
 
@@ -57,7 +59,7 @@ async def get_recovery_case(
     session: AsyncSession = Depends(get_db),
 ):
     """
-    Retrieve full details and policy checks for a specific recovery case.
+    Retrieve full details, intelligence telemetry, and dynamic timeline for a specific recovery case.
     """
     try:
         case_uuid = uuid.UUID(case_id)
@@ -83,11 +85,10 @@ async def retry_recovery_case(
     """
     Trigger manual or policy-governed retry intervention for a recovery case.
     """
-    return await RecoveryService.retry_case(
+    return await RecoveryService.verify_and_settle_recovery(
         session=session,
         case_id=case_id,
-        merchant_id=current_user.merchant_id,
-        reason=request.reason if request else None,
+        payment_data={"reason": request.reason if request else "Merchant manual retry"},
     )
 
 
@@ -162,48 +163,105 @@ async def execute_recovery_case(
     )
 
 
-@router.post("/cases/{case_id}/payment-link", summary="Generate Razorpay Smart Recovery Link")
+@router.post("/cases/{case_id}/payment-link", summary="Generate Secure Smart Recovery Link")
 async def generate_case_payment_link(
     case_id: uuid.UUID,
     current_user: User = Depends(get_current_user),
     session: AsyncSession = Depends(get_db),
 ):
     """
-    Generates a branded, one-click smart payment link via Razorpay for customer self-recovery.
+    Generates a secure, signed, short-lived, customer-specific recovery link.
     """
-    case = await session.get(RecoveryCase, case_id)
-    if not case or case.merchant_id != current_user.merchant_id:
-        raise HTTPException(status_code=404, detail="Recovery case not found")
-
-    customer = await session.get(Customer, case.customer_id) if case.customer_id else None
-    
-    link_data = await RazorpayClient.create_payment_link(
-        amount=case.expected_recovery_amount,
-        currency="INR",
-        description=f"RevivePilot Recovery for Case {str(case.id)[:8]}",
-        customer_name=customer.name if customer else "Customer",
-        customer_email=customer.email if customer else "customer@example.com",
-        customer_phone=customer.phone if customer else "+919876543210",
-        case_id=str(case.id),
-    )
-
-    audit = AuditLog(
+    return await RecoveryService.generate_smart_recovery_link(
+        session=session,
+        case_id=case_id,
         merchant_id=current_user.merchant_id,
-        recovery_case_id=case.id,
-        event_type="PAYMENT_LINK_GENERATED",
-        actor_type="AI_AGENT",
-        description=f"Generated Razorpay Smart Alternative Payment Link: {link_data.get('short_url')}",
-        metadata_={
-            "payment_link": link_data.get("short_url"),
-            "link_id": link_data.get("id"),
-        },
     )
-    session.add(audit)
-    await session.commit()
 
-    return {
-        "success": True,
-        "payment_link": link_data.get("short_url"),
-        "link_id": link_data.get("id"),
-        "amount": float(case.expected_recovery_amount),
-    }
+
+@router.post("/cases/{case_id}/approve", response_model=RecoveryCaseResponse)
+async def approve_case_strategy(
+    case_id: uuid.UUID,
+    request: StrategyApprovalRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """
+    Merchant authorizes the AI recommended recovery strategy.
+    """
+    return await RecoveryService.approve_strategy(
+        session=session,
+        case_id=case_id,
+        merchant_id=current_user.merchant_id,
+        notes=request.notes,
+    )
+
+
+@router.post("/cases/{case_id}/reject", response_model=RecoveryCaseResponse)
+async def reject_case_strategy(
+    case_id: uuid.UUID,
+    request: StrategyApprovalRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """
+    Merchant rejects strategy recommendation, triggering Strategy Agent replanning.
+    """
+    return await RecoveryService.reject_strategy(
+        session=session,
+        case_id=case_id,
+        merchant_id=current_user.merchant_id,
+        notes=request.notes,
+    )
+
+
+@router.post("/cases/{case_id}/chat", response_model=MerchantChatResponse)
+async def merchant_agent_chat(
+    case_id: uuid.UUID,
+    request: MerchantChatRequest,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """
+    Merchant ↔ Agent case-scoped intelligence chat.
+    Answers grounded strictly in case facts.
+    """
+    return await RecoveryService.merchant_chat(
+        session=session,
+        case_id=case_id,
+        merchant_id=current_user.merchant_id,
+        message=request.message,
+    )
+
+
+@router.get("/cases/{case_id}/agent-executions", response_model=List[Dict[str, Any]])
+async def get_case_agent_executions(
+    case_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """
+    Fetch all persisted agent execution records with real latency and token usage.
+    """
+    return await RecoveryService.get_agent_executions(
+        session=session,
+        case_id=case_id,
+        merchant_id=current_user.merchant_id,
+    )
+
+
+@router.post("/cases/{case_id}/send-customer-email")
+async def send_customer_recovery_email(
+    case_id: uuid.UUID,
+    current_user: User = Depends(get_current_user),
+    session: AsyncSession = Depends(get_db),
+):
+    """
+    Merchant authorizes AI Agent to dispatch the timed secure recovery link email
+    directly to the customer.
+    """
+    return await RecoveryService.send_recovery_email_to_customer(
+        session=session,
+        case_id=case_id,
+        merchant_id=current_user.merchant_id,
+    )

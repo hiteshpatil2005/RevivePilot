@@ -210,14 +210,14 @@ export default function AgentMonitor() {
         {/* Clean Production Toolbar */}
         <div className="flex items-center gap-3 flex-shrink-0">
           <a
-            href="http://localhost:5174"
+            href="http://localhost:3001"
             target="_blank"
             rel="noreferrer"
             className="h-9 px-4 rounded text-xs font-semibold bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 hover:text-[#0c6ff9] hover:border-[#0c6ff9] flex items-center gap-2 transition-all shadow-2xs"
-            title="Open customer checkout portal on port 5174"
+            title="Open customer checkout portal on port 3001"
           >
             <ExternalLink size={14} className="text-[#0c6ff9]" />
-            <span>Customer Store (:5174)</span>
+            <span>Customer Store (:3001)</span>
           </a>
 
           <button

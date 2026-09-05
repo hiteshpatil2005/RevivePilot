@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo } from 'react';
 import {
   X, CreditCard, QrCode, Building2, ShieldCheck, CheckCircle2,
   AlertTriangle, Clock, XCircle, ArrowRight, Loader2, Smartphone,
-  Info, ChevronDown, ChevronUp, Lock, RefreshCw, Zap, Search
+  Info, ChevronDown, ChevronUp, Lock, RefreshCw, Zap, Search,
+  MessageSquare, Calendar, Send
 } from 'lucide-react';
 import { PAYMENT_SCENARIOS, FAILURE_CATEGORIES, TEST_PAYMENT_CARDS } from '../../data/mockUserData';
 import { userApi } from '../../services/api';
@@ -24,6 +25,10 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
   const [selectedCategory, setSelectedCategory] = useState('ALL');
   const [showSimulatorDrawer, setShowSimulatorDrawer] = useState(true);
 
+  // Card Simulator State (Section 11 & 42: Valid vs Expired toggle)
+  const [isCardExpiredInSimulator, setIsCardExpiredInSimulator] = useState(false);
+  const [isBankDegradedInSimulator, setIsBankDegradedInSimulator] = useState(false);
+
   // Form states with dynamic unique assigned payment instruments
   const [selectedCardId, setSelectedCardId] = useState('card_assigned');
   const [vpa, setVpa] = useState(
@@ -33,8 +38,33 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
     currentCustomer?.cardNumber || currentCustomer?.card_number || '4532 8912 3456 7890'
   );
   const [cardHolder, setCardHolder] = useState(currentCustomer?.name || 'Verified User');
-  const [expiry, setExpiry] = useState(currentCustomer?.cardExpiry || currentCustomer?.card_expiry || '12/28');
+  const [expiry, setExpiry] = useState(isCardExpiredInSimulator ? '08/25' : (currentCustomer?.cardExpiry || currentCustomer?.card_expiry || '12/28'));
   const [cvv, setCvv] = useState(currentCustomer?.cardCvv || currentCustomer?.card_cvv || '742');
+
+  // Customer Interactive Recovery State (Section 8, 9, 24, 25)
+  const [customerContextOption, setCustomerContextOption] = useState(null);
+  const [customTimeInput, setCustomTimeInput] = useState('');
+  const [isContextSubmitting, setIsContextSubmitting] = useState(false);
+  const [isOnHold, setIsOnHold] = useState(false);
+  const [holdStatedTime, setHoldStatedTime] = useState(null);
+  const [agentContextReply, setAgentContextReply] = useState(null);
+
+  // Execution & Recovery states
+  const [isProcessing, setIsProcessing] = useState(false);
+  const [authStep, setAuthStep] = useState('');
+  const [paymentResult, setPaymentResult] = useState(null);
+  const [activeCaseId, setActiveCaseId] = useState(null);
+  const [recoveryStep, setRecoveryStep] = useState(0);
+  const [isRecovering, setIsRecovering] = useState(false);
+
+  // Update card expiry when simulator toggle changes
+  useEffect(() => {
+    if (isCardExpiredInSimulator) {
+      setExpiry('08/25');
+    } else {
+      setExpiry(currentCustomer?.cardExpiry || currentCustomer?.card_expiry || '12/28');
+    }
+  }, [isCardExpiredInSimulator, currentCustomer]);
 
   const allAvailableCards = useMemo(() => {
     const list = [];
@@ -46,7 +76,7 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
         number: currentCustomer.cardNumber || currentCustomer.card_number,
         last4: String(currentCustomer.cardNumber || currentCustomer.card_number).slice(-4),
         holder: currentCustomer.name || 'Verified User',
-        expiry: currentCustomer.cardExpiry || currentCustomer.card_expiry || '12/28',
+        expiry: isCardExpiredInSimulator ? '08/25' : (currentCustomer.cardExpiry || currentCustomer.card_expiry || '12/28'),
         cvv: currentCustomer.cardCvv || currentCustomer.card_cvv || '742',
         bank: currentCustomer.bankName || 'HDFC Bank',
         bg: 'from-[#002050] to-[#005a9e]',
@@ -59,7 +89,7 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
       }
     });
     return list;
-  }, [currentCustomer]);
+  }, [currentCustomer, isCardExpiredInSimulator]);
 
   const activeCardObj = useMemo(() => {
     return allAvailableCards.find((c) => c.id === selectedCardId) || allAvailableCards[0];
@@ -68,29 +98,20 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
   const handleSelectCard = (c) => {
     setSelectedCardId(c.id);
     setCardNumber(c.number);
-    setExpiry(c.expiry);
+    setExpiry(isCardExpiredInSimulator ? '08/25' : c.expiry);
     setCvv(c.cvv);
     setCardHolder(c.holder);
   };
-
-  // Execution & Recovery states
-  const [isProcessing, setIsProcessing] = useState(false);
-  const [authStep, setAuthStep] = useState('');
-  const [paymentResult, setPaymentResult] = useState(null);
-  const [activeCaseId, setActiveCaseId] = useState(null);
-  const [recoveryStep, setRecoveryStep] = useState(0);
-  const [recoveryActionReady, setRecoveryActionReady] = useState(false);
-  const [isRecovering, setIsRecovering] = useState(false);
 
   useEffect(() => {
     if (currentCustomer) {
       setVpa(currentCustomer.upiVpa || currentCustomer.upi_vpa || 'user.9281@okhdfcbank');
       setCardNumber(currentCustomer.cardNumber || currentCustomer.card_number || '4532 8912 3456 7890');
       setCardHolder(currentCustomer.name || 'Verified User');
-      setExpiry(currentCustomer.cardExpiry || currentCustomer.card_expiry || '12/28');
+      setExpiry(isCardExpiredInSimulator ? '08/25' : (currentCustomer.cardExpiry || currentCustomer.card_expiry || '12/28'));
       setCvv(currentCustomer.cardCvv || currentCustomer.card_cvv || '742');
     }
-  }, [currentCustomer]);
+  }, [currentCustomer, isCardExpiredInSimulator]);
 
   // Subscribe to real-time backend Socket.IO events (backend-driven, NO fake timers)
   useEffect(() => {
@@ -98,15 +119,11 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
       const type = event?.type || event?.event;
       if (type === 'recovery.case.created') {
         setRecoveryStep(1);
-      } else if (type === 'recovery.analysis.started') {
+      } else if (type === 'recovery.waiting_for_customer') {
         setRecoveryStep(2);
-      } else if (type === 'recovery.root_cause_identified') {
+      } else if (type === 'recovery.hold_started') {
+        setIsOnHold(true);
         setRecoveryStep(3);
-      } else if (type === 'recovery.strategy_selected') {
-        setRecoveryStep(4);
-      } else if (type === 'recovery.action.completed') {
-        setRecoveryStep(5);
-        setRecoveryActionReady(true);
       } else if (type === 'payment.recovered') {
         setPaymentResult((prev) => ({
           ...prev,
@@ -131,6 +148,17 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
     );
   }, [selectedScenario]);
 
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && !isProcessing) {
+        onClose();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, isProcessing, onClose]);
+
   if (!isOpen || !item) return null;
 
   const handlePay = async () => {
@@ -142,20 +170,30 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
     setIsProcessing(true);
     setPaymentResult(null);
     setRecoveryStep(0);
-    setRecoveryActionReady(false);
+    setIsOnHold(false);
+    setHoldStatedTime(null);
+    setAgentContextReply(null);
 
     setAuthStep('Routing to Payment Gateway Switch...');
-    await new Promise((r) => setTimeout(r, 400));
+    await new Promise((r) => setTimeout(r, 350));
 
-    setAuthStep('Authorizing through Merchant Payment Gateway...');
-    await new Promise((r) => setTimeout(r, 400));
+    setAuthStep('Authorizing payment with issuer...');
+    await new Promise((r) => setTimeout(r, 350));
 
     try {
-      const isSuccess = selectedScenario === 'NORMAL' || selectedScenario === 'SUCCESS';
+      // Determine effective scenario (e.g. if card is toggled expired in simulator)
+      let effectiveScenario = selectedScenario;
+      if (activeTab === 'cards' && isCardExpiredInSimulator) {
+        effectiveScenario = 'CARD_EXPIRED';
+      } else if (isBankDegradedInSimulator) {
+        effectiveScenario = 'BANK_DOWNTIME';
+      }
+
+      const isSuccess = effectiveScenario === 'NORMAL' || effectiveScenario === 'SUCCESS';
       const res = await userApi.simulateCustomerPayment({
         amount: item.amount,
         method: activeTab,
-        scenario: selectedScenario,
+        scenario: effectiveScenario,
         itemName: item.name,
       });
 
@@ -167,7 +205,7 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
         itemName: item.name,
         amount: item.amount,
         status: isSuccess ? 'SUCCESS' : 'FAILED',
-        failureReason: isSuccess ? null : selectedScenario,
+        failureReason: isSuccess ? null : effectiveScenario,
         paymentMethod: activeTab === 'upi' ? `UPI (${vpa})` : `Card (•••• ${cardNumber.slice(-4)})`,
         caseId: res.case_id || `RC-${Date.now().toString().slice(-5)}`,
       };
@@ -176,7 +214,7 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
       setPaymentResult({
         ...res,
         status: isSuccess ? 'SUCCESS' : 'FAILED',
-        failureReason: isSuccess ? null : selectedScenario,
+        failureReason: isSuccess ? null : effectiveScenario,
       });
 
       if (isSuccess) {
@@ -196,6 +234,29 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
     }
   };
 
+  // Customer interactive context submission (Section 8: "I should have enough funds tomorrow at 10 AM")
+  const handleSubmitCustomerContext = async (optionText = null) => {
+    const chosenTime = optionText || customTimeInput || customerContextOption;
+    if (!chosenTime || !activeCaseId) return;
+
+    try {
+      setIsContextSubmitting(true);
+      const res = await userApi.sendCustomerRecoveryChat(activeCaseId, {
+        selectedOption: chosenTime,
+        message: optionText ? null : customTimeInput,
+      });
+
+      setIsOnHold(true);
+      setHoldStatedTime(chosenTime);
+      setAgentContextReply(res.reply);
+    } catch (err) {
+      console.error('Context submission failed:', err);
+    } finally {
+      setIsContextSubmitting(false);
+    }
+  };
+
+  // Verified Retry Execution (Section 45: Never mark RECOVERED without actual verified settlement)
   const handleRetryRecovery = async () => {
     if (!activeCaseId) return;
     setIsRecovering(true);
@@ -215,7 +276,7 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
       }
       if (onSuccess) onSuccess(res);
     } catch (err) {
-      console.error('Retry failed:', err);
+      console.error('Verified retry failed:', err);
     } finally {
       setIsRecovering(false);
     }
@@ -225,7 +286,7 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-xs animate-fade-in">
       <div className="bg-white w-full max-w-xl rounded-xl overflow-hidden shadow-2xl border border-slate-300 flex flex-col max-h-[94vh]">
         {/* Razorpay Authentic Navy Header */}
-        <div className="bg-[#0c2340] p-4.5 text-white flex items-start justify-between relative shadow-sm">
+        <div className="bg-[#0c2340] px-5 py-4 text-white flex items-center justify-between border-b border-blue-900/50 shadow-sm">
           <div className="space-y-0.5">
             <div className="flex items-center gap-2">
               <span className="w-4 h-4 rounded bg-[#0078d4] flex items-center justify-center font-bold text-[10px] text-white">
@@ -242,17 +303,21 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
             <p className="text-xs text-slate-300 truncate max-w-xs">{item.name}</p>
           </div>
 
-          <div className="text-right">
-            <p className="text-[10px] uppercase font-semibold text-slate-400">Amount Due</p>
-            <p className="text-xl font-bold text-white font-mono-code">
-              ₹{item.amount.toLocaleString('en-IN')}.00
-            </p>
+          <div className="flex items-center gap-3.5">
+            <div className="text-right">
+              <p className="text-[10px] uppercase font-semibold text-slate-400 tracking-wider">Amount Due</p>
+              <p className="text-xl font-bold text-white font-mono-code leading-tight">
+                ₹{item.amount.toLocaleString('en-IN')}.00
+              </p>
+            </div>
             <button
               type="button"
               onClick={onClose}
-              className="absolute top-3.5 right-3.5 text-slate-400 hover:text-white p-1 rounded transition-colors cursor-pointer"
+              className="w-8 h-8 rounded-lg bg-white/10 hover:bg-white/20 text-slate-300 hover:text-white flex items-center justify-center transition-all cursor-pointer flex-shrink-0"
+              title="Close checkout (Esc)"
+              aria-label="Close checkout"
             >
-              <X size={17} />
+              <X size={18} />
             </button>
           </div>
         </div>
@@ -261,9 +326,10 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
         <div className="p-5 flex-1 overflow-y-auto space-y-4 bg-white text-slate-900">
           {paymentResult ? (
             /* Result Screen */
-            <div className="text-center py-5 space-y-4">
+            <div className="text-center py-4 space-y-4">
               {paymentResult.status === 'RECOVERED' ? (
-                <div className="space-y-3">
+                /* VERIFIED RECOVERY SUCCESS */
+                <div className="space-y-3 animate-fade-in">
                   <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto shadow-xs">
                     <CheckCircle2 size={34} />
                   </div>
@@ -271,95 +337,204 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
                     Payment Recovered Successfully!
                   </h4>
                   <p className="text-xs text-slate-600 max-w-sm mx-auto">
-                    ₹{(paymentResult.recovered_amount || item.amount).toLocaleString('en-IN')}.00 has been captured and recorded as actual recovered revenue in the database.
+                    ₹{(paymentResult.recovered_amount || item.amount).toLocaleString('en-IN')}.00 has been captured and validated by payment gateway telemetry.
                   </p>
-                  <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-xs text-emerald-900 max-w-md mx-auto space-y-1">
+                  <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200 text-xs text-emerald-900 max-w-md mx-auto space-y-1 text-left">
                     <div className="flex items-center justify-between font-semibold">
-                      <span>Audit Status:</span>
-                      <span className="font-mono text-emerald-700">RECOVERY_COMPLETED</span>
+                      <span>Verification Audit:</span>
+                      <span className="font-mono text-emerald-700">PAYMENT_CAPTURED_VERIFIED</span>
                     </div>
                     <div className="flex items-center justify-between text-slate-600">
                       <span>Merchant Cockpit:</span>
-                      <span>Real-time +₹{(paymentResult.recovered_amount || item.amount).toLocaleString('en-IN')} updated</span>
+                      <span>Realtime +₹{(paymentResult.recovered_amount || item.amount).toLocaleString('en-IN')} updated</span>
                     </div>
                   </div>
                 </div>
               ) : paymentResult.status === 'SUCCESS' ? (
-                <div className="space-y-2">
+                /* NORMAL SUCCESS */
+                <div className="space-y-2 animate-fade-in">
                   <div className="w-14 h-14 rounded-full bg-emerald-100 text-emerald-600 flex items-center justify-center mx-auto">
                     <CheckCircle2 size={32} />
                   </div>
                   <h4 className="text-lg font-bold text-slate-900">Payment Captured!</h4>
                   <p className="text-xs text-slate-600 max-w-sm mx-auto">
-                    ₹{item.amount.toLocaleString('en-IN')} has been authorized and captured cleanly.
+                    ₹{item.amount.toLocaleString('en-IN')} has been authorized cleanly.
                   </p>
                   <div className="p-2.5 bg-emerald-50 rounded text-xs font-mono-code text-emerald-800 border border-emerald-200 inline-block mt-2">
                     Payment ID: {paymentResult.payment_id || paymentResult.paymentId || 'pay_demo_success'}
                   </div>
                 </div>
               ) : (
-                <div className="space-y-3">
-                  <div className="w-12 h-12 rounded-full bg-red-100 text-red-600 flex items-center justify-center mx-auto">
-                    <AlertTriangle size={28} />
-                  </div>
-                  <div>
-                    <span className="text-[11px] uppercase font-bold text-red-600 tracking-wider">
-                      Gateway Authorization Failed
-                    </span>
-                    <h4 className="text-lg font-bold text-slate-900 mt-0.5">
-                      {activeScenarioObj.label}
-                    </h4>
-                  </div>
-
-                  <p className="text-xs text-slate-600 max-w-md mx-auto leading-relaxed">
-                    {activeScenarioObj.description}
-                  </p>
-
-                  {/* Live Backend-Driven Recovery Stepper */}
-                  <div className="p-4 bg-slate-50 rounded-xl border border-slate-200 text-left text-xs space-y-2.5 max-w-md mx-auto mt-2">
-                    <div className="flex items-center justify-between pb-2 border-b border-slate-200">
-                      <span className="font-bold text-slate-800 flex items-center gap-1.5 text-xs">
-                        <Zap size={14} className="text-[#0078d4]" />
-                        Real-Time Recovery Lifecycle (Socket.IO)
-                      </span>
-                      <span className="text-[10px] font-mono text-[#0078d4] font-semibold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
-                        Live Case #{activeCaseId ? String(activeCaseId).slice(0, 8) : 'ACTIVE'}
-                      </span>
+                /* INTERACTIVE RECOVERY CONVERSATION (FAILURE CASE) */
+                <div className="space-y-3.5 animate-fade-in text-left">
+                  <div className="flex items-start gap-3 p-3 bg-red-50 border border-red-200 rounded-xl">
+                    <div className="w-9 h-9 rounded-full bg-red-100 text-red-600 flex items-center justify-center flex-shrink-0 mt-0.5">
+                      <AlertTriangle size={20} />
                     </div>
+                    <div>
+                      <span className="text-[10px] uppercase font-bold text-red-600 tracking-wider block">
+                        Payment Authorization Failed
+                      </span>
+                      <h4 className="font-bold text-slate-900 text-sm">
+                        {activeScenarioObj.label}
+                      </h4>
+                      <p className="text-xs text-slate-600 mt-0.5 leading-relaxed">
+                        {paymentResult.message || activeScenarioObj.description}
+                      </p>
+                    </div>
+                  </div>
 
-                    {/* Steps */}
-                    <div className="space-y-2 pt-1 text-[11px]">
-                      <div className="flex items-center gap-2 text-emerald-700 font-semibold">
-                        <CheckCircle2 size={13} />
-                        <span>Payment Failure Telemetry Captured</span>
+                  {/* Scenario 1: INSUFFICIENT FUNDS INTERACTIVE CONVERSATION (Section 7, 8, 9, 25) */}
+                  {paymentResult.failure_reason === 'INSUFFICIENT_FUNDS' && (
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3">
+                      <div className="flex items-center justify-between border-b border-slate-200 pb-2">
+                        <span className="font-bold text-xs text-slate-900 flex items-center gap-1.5">
+                          <MessageSquare size={14} className="text-[#0078d4]" />
+                          <span>RevivePilot Smart Recovery Conversation</span>
+                        </span>
+                        <span className="text-[10px] font-mono text-[#0078d4] font-semibold bg-blue-50 px-2 py-0.5 rounded border border-blue-200">
+                          Case #{activeCaseId ? String(activeCaseId).slice(0, 8) : 'ACTIVE'}
+                        </span>
                       </div>
 
-                      <div className={`flex items-center gap-2 ${recoveryStep >= 1 ? 'text-emerald-700 font-semibold' : 'text-slate-400'}`}>
-                        {recoveryStep >= 1 ? <CheckCircle2 size={13} /> : <div className="w-3 h-3 rounded-full border border-slate-300" />}
-                        <span>Revenue Risk Detected by Detection Agent</span>
-                      </div>
+                      {!isOnHold ? (
+                        /* Step A: Ask Customer when funds will be available */
+                        <div className="space-y-3 text-xs">
+                          <p className="text-slate-700 leading-relaxed">
+                            Your payment of <strong>₹{item.amount.toLocaleString('en-IN')}</strong> could not be completed because the available payment balance was insufficient.
+                          </p>
+                          <p className="font-semibold text-slate-900">
+                            When would you like to try this payment again?
+                          </p>
 
-                      <div className={`flex items-center gap-2 ${recoveryStep >= 2 ? 'text-emerald-700 font-semibold' : 'text-slate-400'}`}>
-                        {recoveryStep >= 2 ? <CheckCircle2 size={13} /> : <div className="w-3 h-3 rounded-full border border-slate-300" />}
-                        <span>Root Cause Agent Diagnosing Failure</span>
-                      </div>
+                          {/* Quick Choice Chips */}
+                          <div className="grid grid-cols-2 gap-2 pt-1">
+                            {[
+                              'Today evening',
+                              'Tomorrow morning',
+                              'After expected salary/funds',
+                              'Tomorrow at 10 AM',
+                            ].map((opt) => (
+                              <button
+                                key={opt}
+                                type="button"
+                                onClick={() => handleSubmitCustomerContext(opt)}
+                                disabled={isContextSubmitting}
+                                className="p-2.5 rounded-lg border border-slate-300 bg-white hover:bg-blue-50 hover:border-[#0078d4] text-slate-800 font-medium text-left transition-all cursor-pointer shadow-2xs"
+                              >
+                                {opt}
+                              </button>
+                            ))}
+                          </div>
 
-                      <div className={`flex items-center gap-2 ${recoveryStep >= 4 ? 'text-emerald-700 font-semibold' : 'text-slate-400'}`}>
-                        {recoveryStep >= 4 ? <CheckCircle2 size={13} /> : <div className="w-3 h-3 rounded-full border border-slate-300" />}
-                        <span>Recovery Strategy Selected: {activeScenarioObj.strategy}</span>
-                      </div>
+                          {/* Free text write-in */}
+                          <div className="pt-2 flex items-center gap-2">
+                            <input
+                              type="text"
+                              value={customTimeInput}
+                              onChange={(e) => setCustomTimeInput(e.target.value)}
+                              placeholder="Or specify custom time (e.g. Friday 2 PM)..."
+                              className="flex-1 px-3 py-2 rounded-lg border border-slate-300 bg-white text-xs focus:outline-hidden focus:border-[#0078d4]"
+                            />
+                            <button
+                              type="button"
+                              onClick={() => handleSubmitCustomerContext(null)}
+                              disabled={isContextSubmitting || !customTimeInput.trim()}
+                              className="btn-azure py-2 px-3 text-xs flex items-center gap-1 cursor-pointer disabled:opacity-50"
+                            >
+                              <Send size={12} />
+                              <span>Set</span>
+                            </button>
+                          </div>
 
-                      <div className={`flex items-center gap-2 ${recoveryActionReady || recoveryStep >= 5 ? 'text-blue-700 font-bold' : 'text-slate-400'}`}>
-                        {recoveryActionReady || recoveryStep >= 5 ? (
-                          <span className="w-2.5 h-2.5 rounded-full bg-blue-600 animate-ping" />
-                        ) : (
-                          <div className="w-3 h-3 rounded-full border border-slate-300" />
-                        )}
-                        <span>Autonomous Recovery Action Ready</span>
+                          {/* Section 10: Strict Disclaimer */}
+                          <p className="text-[10px] text-slate-500 italic pt-1">
+                            🔒 RevivePilot cannot access your private bank account balance. Your stated retry time is recorded as customer-provided evidence to prevent unwanted retries.
+                          </p>
+                        </div>
+                      ) : (
+                        /* Step B: Case is ON HOLD */
+                        <div className="space-y-3 text-xs animate-fade-in">
+                          <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg space-y-1.5">
+                            <div className="flex items-center justify-between">
+                              <span className="font-bold text-blue-900 flex items-center gap-1.5">
+                                <Clock size={14} className="text-[#0078d4]" />
+                                <span>Payment Placed ON HOLD</span>
+                              </span>
+                              <span className="text-[10px] font-mono px-2 py-0.5 rounded bg-blue-200/60 font-bold text-blue-800">
+                                HOLD ACTIVE
+                              </span>
+                            </div>
+                            <p className="text-slate-700 leading-relaxed text-[11px]">
+                              {agentContextReply || `Recorded retry window: "${holdStatedTime}". The payment will remain held rather than repeatedly retrying your bank account.`}
+                            </p>
+                          </div>
+
+                          <div className="pt-1 space-y-2">
+                            <p className="text-slate-600 text-[11px]">
+                              Have your funds arrived? You can confirm and proceed with the payment now:
+                            </p>
+                            <button
+                              type="button"
+                              onClick={handleRetryRecovery}
+                              disabled={isRecovering}
+                              className="w-full btn-azure py-2.5 text-xs font-bold flex items-center justify-center gap-2 cursor-pointer shadow-xs disabled:opacity-50"
+                            >
+                              {isRecovering ? (
+                                <>
+                                  <Loader2 size={14} className="animate-spin" />
+                                  <span>Authorizing Verified Payment...</span>
+                                </>
+                              ) : (
+                                <>
+                                  <CheckCircle2 size={14} />
+                                  <span>Confirm &amp; Complete Payment (₹{item.amount.toLocaleString('en-IN')})</span>
+                                </>
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Scenario 2: CARD EXPIRED INTERACTIVE FLOW (Section 11) */}
+                  {paymentResult.failure_reason === 'CARD_EXPIRED' && (
+                    <div className="p-4 bg-slate-50 border border-slate-200 rounded-xl space-y-3 text-xs">
+                      <p className="text-slate-700 leading-relaxed">
+                        Your saved payment card ending in <strong>{cardNumber.slice(-4)}</strong> appears to have expired.
+                      </p>
+                      <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-900 text-[11px] space-y-1">
+                        <span className="font-bold block">Simulation Test Environment</span>
+                        <p>You can toggle the simulated card validity in the simulator controls below to test recovery.</p>
+                      </div>
+                      <div className="flex items-center gap-2 pt-1">
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setIsCardExpiredInSimulator(false);
+                            setExpiry('12/28');
+                          }}
+                          className="flex-1 btn-azure py-2 text-xs font-semibold cursor-pointer"
+                        >
+                          Update Card to Valid (12/28)
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setActiveTab('upi');
+                            setPaymentResult(null);
+                          }}
+                          className="flex-1 btn-azure-secondary py-2 text-xs font-semibold cursor-pointer"
+                        >
+                          Switch to UPI Rail
+                        </button>
                       </div>
                     </div>
+                  )}
 
-                    {/* Action Button */}
+                  {/* General Verified Retry Action for Other Scenarios */}
+                  {paymentResult.failure_reason !== 'INSUFFICIENT_FUNDS' && paymentResult.failure_reason !== 'CARD_EXPIRED' && (
                     <div className="pt-2">
                       <button
                         type="button"
@@ -370,17 +545,17 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
                         {isRecovering ? (
                           <>
                             <Loader2 size={14} className="animate-spin" />
-                            <span>Executing Recovery Settlement...</span>
+                            <span>Processing Verified Retry...</span>
                           </>
                         ) : (
                           <>
                             <RefreshCw size={13} />
-                            <span>Retry &amp; Recover Payment (₹{item.amount.toLocaleString('en-IN')})</span>
+                            <span>Confirm &amp; Retry Payment (₹{item.amount.toLocaleString('en-IN')})</span>
                           </>
                         )}
                       </button>
                     </div>
-                  </div>
+                  )}
                 </div>
               )}
 
@@ -390,14 +565,14 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
                   onClick={onClose}
                   className="w-full btn-azure-secondary py-2 text-xs font-semibold cursor-pointer"
                 >
-                  Close &amp; View Invoices
+                  Close &amp; View Orders
                 </button>
               </div>
             </div>
           ) : (
             /* Active Form */
             <>
-              {/* Dynamic Assigned Instruments Banner */}
+              {/* Customer Identity Banner */}
               {currentCustomer ? (
                 <div className="p-2.5 bg-blue-50 border border-blue-200 rounded-lg flex items-center justify-between text-xs">
                   <div className="flex items-center gap-2">
@@ -407,7 +582,7 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
                         Verified Identity: {currentCustomer.name}
                       </p>
                       <p className="text-[10px] text-slate-500 font-mono">
-                        {currentCustomer.email} • Unique Instruments Assigned
+                        {currentCustomer.email} • Assigned Unique Test Instruments
                       </p>
                     </div>
                   </div>
@@ -436,7 +611,7 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
                 </div>
               )}
 
-              {/* Tabs */}
+              {/* Payment Rail Tabs */}
               <div className="grid grid-cols-3 gap-2">
                 <button
                   type="button"
@@ -507,35 +682,6 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
               {/* Cards Form */}
               {activeTab === 'cards' && (
                 <div className="space-y-3">
-                  {/* Card Selector Pills */}
-                  <div>
-                    <label className="text-[11px] font-semibold text-slate-600 block mb-1.5">
-                      Select Payment Card ({allAvailableCards.length} Cards Available)
-                    </label>
-                    <div className="grid grid-cols-2 gap-1.5">
-                      {allAvailableCards.map((c) => (
-                        <button
-                          key={c.id}
-                          type="button"
-                          onClick={() => handleSelectCard(c)}
-                          className={`p-2 rounded border text-left text-xs transition-all cursor-pointer ${
-                            selectedCardId === c.id
-                              ? 'border-[#0078d4] bg-blue-50/70 shadow-xs ring-1 ring-blue-500/30'
-                              : 'border-slate-200 bg-white hover:bg-slate-50'
-                          }`}
-                        >
-                          <div className="flex items-center justify-between">
-                            <span className="font-bold text-slate-800 text-[11px] truncate">{c.brand}</span>
-                            <span className="text-[9px] uppercase font-mono px-1 rounded bg-slate-100 font-semibold text-slate-600">
-                              {c.network}
-                            </span>
-                          </div>
-                          <p className="font-mono text-[11px] text-slate-500 mt-0.5">•••• {c.last4}</p>
-                        </button>
-                      ))}
-                    </div>
-                  </div>
-
                   {/* Realistic Credit Card Preview */}
                   <div className={`p-4 rounded-xl text-white bg-gradient-to-r ${activeCardObj?.bg || 'from-[#002050] to-[#005a9e]'} shadow-md space-y-3 relative overflow-hidden`}>
                     <div className="flex items-center justify-between">
@@ -562,7 +708,9 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
                       </div>
                       <div className="text-right">
                         <span className="text-[8px] opacity-60 block">Expires</span>
-                        <span className="font-mono font-semibold">{expiry || '12/28'}</span>
+                        <span className={`font-mono font-semibold ${isCardExpiredInSimulator ? 'text-red-300 underline font-bold' : ''}`}>
+                          {expiry || '12/28'}
+                        </span>
                       </div>
                     </div>
                   </div>
@@ -617,7 +765,7 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
                 </div>
               )}
 
-              {/* ── 25 Payment Failure Simulation Controls ── */}
+              {/* ── Section 42: Test Scenario & Simulator Controls Engine ── */}
               <div className="border border-slate-200 rounded-lg overflow-hidden shadow-2xs">
                 <button
                   type="button"
@@ -626,11 +774,11 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
                 >
                   <span className="flex items-center gap-2">
                     <Zap size={14} className="text-[#0078d4]" />
-                    <span>Real-Time Failure Simulation: 25 Failure Causes</span>
+                    <span>Real-Time Failure Simulation: 25 Scenarios</span>
                   </span>
                   <div className="flex items-center gap-2">
                     <span className="px-2 py-0.5 rounded text-[10px] bg-blue-50 text-[#0078d4] font-semibold border border-blue-200">
-                      Razorpay Standard
+                      SIMULATION ENVIRONMENT
                     </span>
                     {showSimulatorDrawer ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                   </div>
@@ -638,7 +786,7 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
 
                 {showSimulatorDrawer && (
                   <div className="p-3.5 bg-white space-y-3 border-t border-slate-200 text-xs">
-                    {/* Category Tabs */}
+                    {/* Category Filter Pills */}
                     <div className="flex items-center gap-1.5 overflow-x-auto pb-1 scrollbar-thin">
                       {FAILURE_CATEGORIES.map((cat) => (
                         <button
@@ -656,10 +804,10 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
                       ))}
                     </div>
 
-                    {/* Failure Cause Selector */}
+                    {/* Scenario Picker */}
                     <div>
                       <label className="text-[11px] font-bold uppercase tracking-wider text-slate-500 block mb-1">
-                        Select Realtime Failure Scenario
+                        Select Payment Failure Scenario
                       </label>
                       <select
                         value={selectedScenario}
@@ -674,22 +822,35 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
                       </select>
                     </div>
 
-                    {/* Active Scenario Preview Card */}
-                    <div className="p-3 rounded-lg bg-slate-50 border border-slate-200 space-y-1.5 text-xs">
-                      <div className="flex items-center justify-between">
-                        <span className="font-bold text-slate-900">
-                          {activeScenarioObj.label}
-                        </span>
-                        <span className="font-mono text-[10px] px-2 py-0.5 rounded bg-white border border-slate-300 text-slate-600 font-semibold">
-                          code: {activeScenarioObj.code}
-                        </span>
-                      </div>
-                      <p className="text-slate-600 leading-relaxed text-[11px]">
-                        {activeScenarioObj.description}
-                      </p>
-                      <div className="pt-1.5 border-t border-slate-200 flex items-center justify-between text-[11px]">
-                        <span className="text-slate-500 font-medium">Triggered Strategy:</span>
-                        <span className="font-bold text-emerald-700">{activeScenarioObj.strategy}</span>
+                    {/* Section 11 & 42: Simulator Environment Controls (Card & Bank Health) */}
+                    <div className="p-2.5 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                      <span className="text-[10px] uppercase font-bold text-slate-500 tracking-wider block">
+                        Test Rail Simulator Controls
+                      </span>
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <button
+                          type="button"
+                          onClick={() => setIsCardExpiredInSimulator(!isCardExpiredInSimulator)}
+                          className={`px-2.5 py-1.5 rounded text-[11px] font-semibold border cursor-pointer transition-all ${
+                            isCardExpiredInSimulator
+                              ? 'bg-red-50 text-red-700 border-red-300 ring-1 ring-red-400'
+                              : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                          }`}
+                        >
+                          Card Validity: {isCardExpiredInSimulator ? 'EXPIRED (08/25)' : 'VALID (12/28)'}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => setIsBankDegradedInSimulator(!isBankDegradedInSimulator)}
+                          className={`px-2.5 py-1.5 rounded text-[11px] font-semibold border cursor-pointer transition-all ${
+                            isBankDegradedInSimulator
+                              ? 'bg-amber-50 text-amber-800 border-amber-300 ring-1 ring-amber-400'
+                              : 'bg-white text-slate-700 border-slate-300 hover:bg-slate-50'
+                          }`}
+                        >
+                          Bank Status: {isBankDegradedInSimulator ? 'DEGRADED (Downtime)' : 'HEALTHY (Normal)'}
+                        </button>
                       </div>
                     </div>
                   </div>
@@ -717,12 +878,12 @@ export default function RazorpayModal({ item, isOpen, onClose, onSuccess, onFail
                 ) : isProcessing ? (
                   <>
                     <Loader2 size={14} className="animate-spin text-white" />
-                    <span>{authStep || 'Processing...'}</span>
+                    <span>{authStep || 'Authorizing...'}</span>
                   </>
                 ) : (
                   <>
                     <Lock size={13} />
-                    <span>Pay ₹{item.amount.toLocaleString('en-IN')}.00</span>
+                    <span>Authorize Payment ₹{item.amount.toLocaleString('en-IN')}.00</span>
                   </>
                 )}
               </button>

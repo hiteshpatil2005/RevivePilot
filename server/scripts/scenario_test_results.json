@@ -1,0 +1,1010 @@
+[
+  {
+    "index": 1,
+    "key": "BANK_TIMEOUT",
+    "name": "Payment Timeout",
+    "category": "TECHNICAL_INFRASTRUCTURE",
+    "amount": 35000.0,
+    "method": "CARD",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "TECHNICAL_INFRASTRUCTURE",
+      "recoverability": "HIGH",
+      "is_temporary": true,
+      "next_stage": "HOLD_FOR_INFRASTRUCTURE_RECOVERY",
+      "reason": "Transient infrastructure timeout; recoverable once switch health normalizes"
+    },
+    "strategy": {
+      "strategy": "Smart Delayed Retry",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 90,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated Delayed Retry based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 2,
+    "key": "CARD_DECLINED",
+    "name": "Card Declined",
+    "category": "FINANCIAL_AUTH",
+    "amount": 35000.0,
+    "method": "CARD",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "FINANCIAL_AUTH",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "Card issuing institution declined transaction due to card limit, international restriction, or 3DS challenge drop."
+    },
+    "strategy": {
+      "strategy": "Smart Alternative Link",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 65,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated Smart Alternative Link based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 3,
+    "key": "NETWORK_ERROR",
+    "name": "Network Failure",
+    "category": "TECHNICAL_NETWORK",
+    "amount": 35000.0,
+    "method": "CARD",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "TECHNICAL_NETWORK",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "Transient network socket drop during TLS handshake with payment network."
+    },
+    "strategy": {
+      "strategy": "Instant Network Retry",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 90,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated Instant Network Retry based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 4,
+    "key": "INSUFFICIENT_FUNDS",
+    "name": "Insufficient Funds",
+    "category": "FINANCIAL_LIQUIDITY",
+    "amount": 35000.0,
+    "method": "CARD",
+    "detection": {
+      "decision": "CONTACT_CUSTOMER",
+      "urgency": "CONTACT_CUSTOMER",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "FINANCIAL_LIQUIDITY",
+      "recoverability": "HIGH",
+      "is_temporary": true,
+      "next_stage": "CUSTOMER_CONTEXT_COLLECTION",
+      "reason": "Customer may complete payment after expected funds become available"
+    },
+    "strategy": {
+      "strategy": "Delayed Retry + Balance Nudge",
+      "current_state": "ON_HOLD",
+      "next_action": "HOLD",
+      "probability": 75,
+      "smart_link_required": false,
+      "merchant_approval_required": false,
+      "reason": "Customer indicated expected funds availability at Tomorrow at 10:00 AM. RevivePilot cannot inspect private bank balances; case is placed ON_HOLD until customer confirms readiness."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 5,
+    "key": "BANK_DECLINED",
+    "name": "Bank Declined",
+    "category": "Bank",
+    "amount": 35000.0,
+    "method": "CARD",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "Bank",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "Issuing bank declined debit. Likely policy restriction on card type or commercial transaction limit."
+    },
+    "strategy": {
+      "strategy": "Alternative Rail / Switch to UPI",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 62,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated Alternative Rail / Switch to UPI based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 6,
+    "key": "CARD_EXPIRED",
+    "name": "Card Expired",
+    "category": "Card",
+    "amount": 35000.0,
+    "method": "CARD",
+    "detection": {
+      "decision": "CONTACT_CUSTOMER",
+      "urgency": "CONTACT_CUSTOMER",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "CREDENTIAL_EXPIRED",
+      "recoverability": "HIGH",
+      "is_temporary": false,
+      "next_stage": "CUSTOMER_UPDATE_REQUIRED",
+      "reason": "Customer can update card validity or switch to UPI rail"
+    },
+    "strategy": {
+      "strategy": "Update Card Details / One-Click UPI Link",
+      "current_state": "WAITING_FOR_CUSTOMER",
+      "next_action": "ASK_CUSTOMER",
+      "probability": 85,
+      "smart_link_required": false,
+      "merchant_approval_required": false,
+      "reason": "Card validity has elapsed in simulation. Awaiting customer credential update or payment rail change."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 7,
+    "key": "CARD_BLOCKED",
+    "name": "Card Blocked",
+    "category": "Card/Bank",
+    "amount": 35000.0,
+    "method": "NET_BANKING",
+    "detection": {
+      "decision": "CONTACT_CUSTOMER",
+      "urgency": "CONTACT_CUSTOMER",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "Card/Bank",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "Card flagged by issuer security switch (hotlisted/restricted). Direct re-attempts will continually fail."
+    },
+    "strategy": {
+      "strategy": "Alternative Payment Method (UPI/NetBanking)",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 55,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated Alternative Payment Method (UPI/NetBanking) based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 8,
+    "key": "INCORRECT_CARD_DETAILS",
+    "name": "Incorrect Card Details",
+    "category": "Customer",
+    "amount": 35000.0,
+    "method": "CARD",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "Customer",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "Luhn algorithm checksum failure or CVV verification mismatch during pre-auth validation."
+    },
+    "strategy": {
+      "strategy": "Card Details Re-prompt Modal",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 88,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated Card Details Re-prompt Modal based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 9,
+    "key": "INVALID_UPI_ID",
+    "name": "Invalid UPI ID / VPA",
+    "category": "UPI",
+    "amount": 35000.0,
+    "method": "UPI",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "UPI",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "NPCI central mapper returned VPA resolution failure. Typos detected in handle domain."
+    },
+    "strategy": {
+      "strategy": "UPI VPA Auto-Correction / Dynamic QR Code",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 90,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated UPI VPA Auto-Correction / Dynamic QR Code based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 10,
+    "key": "UPI_PAYMENT_DECLINED",
+    "name": "UPI Payment Declined",
+    "category": "UPI/Bank",
+    "amount": 35000.0,
+    "method": "UPI",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "UPI/Bank",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "Remitter bank declined authorization during MPIN verification on PSP app."
+    },
+    "strategy": {
+      "strategy": "UPI Intent Re-trigger / Alternative App",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 72,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated UPI Intent Re-trigger / Alternative App based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 11,
+    "key": "UPI_TIMEOUT",
+    "name": "UPI Timeout",
+    "category": "UPI/Network",
+    "amount": 35000.0,
+    "method": "UPI",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "UPI/Network",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "NPCI UPI switch latency exceeding 45-second gateway timeout threshold."
+    },
+    "strategy": {
+      "strategy": "Dynamic UPI Push with Extended Window",
+      "current_state": "INVESTIGATING",
+      "next_action": "VERIFY_PAYMENT",
+      "probability": 85,
+      "smart_link_required": false,
+      "merchant_approval_required": false,
+      "reason": "Authorization response is pending asynchronously. Verifying gateway status before initiating any action."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 12,
+    "key": "UPI_COLLECT_REQUEST_EXPIRED",
+    "name": "UPI Collect Request Expired",
+    "category": "UPI",
+    "amount": 35000.0,
+    "method": "UPI",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "UPI",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "Customer notification latency or inattention; collect request TTL (5 min) lapsed without approval."
+    },
+    "strategy": {
+      "strategy": "Fresh UPI Collect Notification",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 76,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated Fresh UPI Collect Notification based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 13,
+    "key": "CUSTOMER_CANCELLED",
+    "name": "Customer Cancelled",
+    "category": "Customer",
+    "amount": 35000.0,
+    "method": "CARD",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "Customer",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "User intent abandonment during checkout flow (price check, hesitation, or UX friction)."
+    },
+    "strategy": {
+      "strategy": "Abandoned Cart Recovery Link",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 65,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated Abandoned Cart Recovery Link based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 14,
+    "key": "PAYMENT_TIMEOUT",
+    "name": "Payment Timeout",
+    "category": "Network/Gateway",
+    "amount": 35000.0,
+    "method": "CARD",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "Network/Gateway",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "Asynchronous communication breakdown between payment aggregator and card network switch."
+    },
+    "strategy": {
+      "strategy": "Asynchronous Status Poll & Delayed Retry",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 90,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated Asynchronous Status Poll & Delayed Retry based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 15,
+    "key": "BANK_DOWNTIME",
+    "name": "Bank Downtime",
+    "category": "Bank",
+    "amount": 35000.0,
+    "method": "CARD",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "TECHNICAL_INFRASTRUCTURE",
+      "recoverability": "HIGH",
+      "is_temporary": true,
+      "next_stage": "HOLD_FOR_INFRASTRUCTURE_RECOVERY",
+      "reason": "Transient infrastructure timeout; recoverable once switch health normalizes"
+    },
+    "strategy": {
+      "strategy": "Dynamic Rail Failover to Secondary Acquirer",
+      "current_state": "ON_HOLD",
+      "next_action": "HOLD",
+      "probability": 88,
+      "smart_link_required": false,
+      "merchant_approval_required": false,
+      "reason": "Bank core systems are currently degraded. Holding case until switch health recovers in simulator."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 16,
+    "key": "GATEWAY_ERROR",
+    "name": "Gateway Error",
+    "category": "Gateway",
+    "amount": 35000.0,
+    "method": "CARD",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "TECHNICAL_INFRASTRUCTURE",
+      "recoverability": "HIGH",
+      "is_temporary": true,
+      "next_stage": "HOLD_FOR_INFRASTRUCTURE_RECOVERY",
+      "reason": "Transient infrastructure timeout; recoverable once switch health normalizes"
+    },
+    "strategy": {
+      "strategy": "Instant Acquirer Route Failover",
+      "current_state": "ON_HOLD",
+      "next_action": "HOLD",
+      "probability": 94,
+      "smart_link_required": false,
+      "merchant_approval_required": false,
+      "reason": "Bank core systems are currently degraded. Holding case until switch health recovers in simulator."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 17,
+    "key": "NETWORK_FAILURE",
+    "name": "Network Failure",
+    "category": "Network",
+    "amount": 35000.0,
+    "method": "CARD",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "Network",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "Transient network socket drop during TLS handshake with payment network."
+    },
+    "strategy": {
+      "strategy": "Instant Idempotent Network Retry",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 92,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated Instant Idempotent Network Retry based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 18,
+    "key": "TECHNICAL_ERROR",
+    "name": "Technical Error",
+    "category": "System",
+    "amount": 35000.0,
+    "method": "CARD",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "System",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "Internal worker pool queue timeout during signature verification."
+    },
+    "strategy": {
+      "strategy": "Idempotent Safe Re-attempt",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 88,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated Idempotent Safe Re-attempt based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 19,
+    "key": "PAYMENT_METHOD_UNAVAILABLE",
+    "name": "Payment Method Unavailable",
+    "category": "Payment Method",
+    "amount": 35000.0,
+    "method": "CARD",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "Payment Method",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "Payment rail taken offline for maintenance by aggregator."
+    },
+    "strategy": {
+      "strategy": "Smart Alternative Method Recommendation",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 82,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated Smart Alternative Method Recommendation based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 20,
+    "key": "LIMIT_EXCEEDED",
+    "name": "Limit Exceeded",
+    "category": "Bank/Customer",
+    "amount": 120000.0,
+    "method": "NET_BANKING",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "HIGH",
+      "tier": "PRO",
+      "risk_score": 80
+    },
+    "root_cause": {
+      "category": "Bank/Customer",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "Transaction breached RBI/bank per-day UPI (\u20b91L) or card online spend ceiling."
+    },
+    "strategy": {
+      "strategy": "VIP Escalation",
+      "current_state": "READY_FOR_APPROVAL",
+      "next_action": "REQUEST_MERCHANT_APPROVAL",
+      "probability": 85,
+      "smart_link_required": true,
+      "merchant_approval_required": true,
+      "reason": "High-value payment (INR 120,000.00) flagged for VIP Escalation and merchant approval."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 21,
+    "key": "AUTHENTICATION_FAILED",
+    "name": "Authentication Failed",
+    "category": "Customer/Bank",
+    "amount": 35000.0,
+    "method": "CARD",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "Customer/Bank",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "OTP entry mismatch or 3DS session timeout on bank Access Control Server (ACS)."
+    },
+    "strategy": {
+      "strategy": "3DS OTP Re-prompt via SMS/WhatsApp",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 74,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated 3DS OTP Re-prompt via SMS/WhatsApp based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 22,
+    "key": "MANDATE_FAILED",
+    "name": "Mandate Failed",
+    "category": "RECURRING_MANDATE",
+    "amount": 35000.0,
+    "method": "UPI_AUTOPAY",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "RECURRING_MANDATE",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "Pre-debit notification window or e-mandate mandate ID unrecognized by destination bank."
+    },
+    "strategy": {
+      "strategy": "Mandate Batch Re-presentation",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 70,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated Mandate Batch Re-presentation based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 23,
+    "key": "MANDATE_REVOKED",
+    "name": "Mandate Cancelled/Revoked",
+    "category": "Subscription",
+    "amount": 35000.0,
+    "method": "UPI_AUTOPAY",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "Subscription",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "Mandate state marked REVOKED in NPCI e-Mandate registry."
+    },
+    "strategy": {
+      "strategy": "New E-Mandate Authorization Link",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 45,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated New E-Mandate Authorization Link based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 24,
+    "key": "RECURRING_PAYMENT_FAILED",
+    "name": "Recurring Payment Failed",
+    "category": "Subscription",
+    "amount": 35000.0,
+    "method": "UPI_AUTOPAY",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "Subscription",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "Scheduled debit run rejected during off-peak processing cycle."
+    },
+    "strategy": {
+      "strategy": "Grace Period Retry & Customer Alert",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 68,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated Grace Period Retry & Customer Alert based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 25,
+    "key": "DUPLICATE_PAYMENT_ATTEMPT",
+    "name": "Duplicate Payment Attempt",
+    "category": "System",
+    "amount": 35000.0,
+    "method": "CARD",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "System",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "Double-click submission by customer; duplicate idempotency key detected."
+    },
+    "strategy": {
+      "strategy": "Deduplication & Auto-Refund Safeguard",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 95,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated Deduplication & Auto-Refund Safeguard based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 26,
+    "key": "RISK_FRAUD_DECLINE",
+    "name": "Risk/Fraud Decline",
+    "category": "Risk",
+    "amount": 85000.0,
+    "method": "NET_BANKING",
+    "detection": {
+      "decision": "STOP",
+      "urgency": "HIGH",
+      "tier": "PRO",
+      "risk_score": 80
+    },
+    "root_cause": {
+      "category": "RISK_SECURITY",
+      "recoverability": "NONE",
+      "is_temporary": false,
+      "next_stage": "MANUAL_MERCHANT_REVIEW",
+      "reason": "Security guardrails prevent autonomous retry"
+    },
+    "strategy": {
+      "strategy": "Enhanced 3DS Step-Up Verification",
+      "current_state": "STOPPED",
+      "next_action": "STOP",
+      "probability": 35,
+      "smart_link_required": false,
+      "merchant_approval_required": true,
+      "reason": "Fraud prevention policy triggered. Automated recovery stopped for merchant security."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 27,
+    "key": "LATE_AUTHORIZATION",
+    "name": "Late Authorization",
+    "category": "Network/Gateway/Bank",
+    "amount": 35000.0,
+    "method": "CARD",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "Network/Gateway/Bank",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "Delayed server-to-server webhook arrived 4 minutes after front-end timeout."
+    },
+    "strategy": {
+      "strategy": "Asynchronous Webhook Re-query",
+      "current_state": "INVESTIGATING",
+      "next_action": "VERIFY_PAYMENT",
+      "probability": 98,
+      "smart_link_required": false,
+      "merchant_approval_required": false,
+      "reason": "Authorization response is pending asynchronously. Verifying gateway status before initiating any action."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  },
+  {
+    "index": 28,
+    "key": "UNKNOWN_FAILURE",
+    "name": "Unknown/Unclassified Failure",
+    "category": "System",
+    "amount": 35000.0,
+    "method": "CARD",
+    "detection": {
+      "decision": "RECOVERY_QUALIFIED",
+      "urgency": "WAIT",
+      "tier": "PRO",
+      "risk_score": 60
+    },
+    "root_cause": {
+      "category": "System",
+      "recoverability": "MEDIUM",
+      "is_temporary": true,
+      "next_stage": "STRATEGY",
+      "reason": "Rail returned unmapped status code. Ingested raw gateway payload for telemetry learning."
+    },
+    "strategy": {
+      "strategy": "Heuristic Deep Scan & Fallback Retry",
+      "current_state": "APPROVED",
+      "next_action": "GENERATE_RECOVERY_LINK",
+      "probability": 50,
+      "smart_link_required": true,
+      "merchant_approval_required": false,
+      "reason": "Formulated Heuristic Deep Scan & Fallback Retry based on failure taxonomy telemetry and attempt count #1."
+    },
+    "action": {
+      "decision": "POLICY_APPROVED",
+      "action": "HOLD",
+      "status": null,
+      "policy_passed": true
+    }
+  }
+]

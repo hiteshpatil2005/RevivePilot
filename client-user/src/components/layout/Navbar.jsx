@@ -71,14 +71,14 @@ export default function Navbar() {
 
           {/* RevivePilot Cockpit Link */}
           <a
-            href="http://localhost:5173"
+            href="http://localhost:3000"
             target="_blank"
             rel="noreferrer"
             className="flex items-center gap-1.5 px-2.5 py-1 text-xs text-blue-100 hover:text-white bg-[#003366] hover:bg-[#004080] rounded border border-blue-700/50 transition-colors"
             title="Open RevivePilot Merchant Cockpit in new tab"
           >
             <ShieldCheck size={13} className="text-blue-300" />
-            <span className="font-medium">Merchant Cockpit (:5173)</span>
+            <span className="font-medium">Merchant Cockpit (:3000)</span>
             <ExternalLink size={11} className="opacity-70" />
           </a>
 

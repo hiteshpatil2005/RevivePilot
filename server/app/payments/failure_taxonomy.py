@@ -8,7 +8,7 @@ Provides authoritative metadata for:
 - Multi-Agent Intelligence (Detection, Root Cause diagnosis, Strategy formulation)
 """
 
-from typing import Dict, Any
+from typing import Dict, Any, Optional, List, Union
 
 FAILURE_TAXONOMY: Dict[str, Dict[str, Any]] = {
     "BANK_TIMEOUT": {
@@ -451,7 +451,7 @@ FAILURE_TAXONOMY: Dict[str, Dict[str, Any]] = {
         "retry_delay_seconds": 0,
         "alternate_method": "NET_BANKING",
         "agent_diagnosis": "High velocity or anomalous device IP trigger detected by internal fraud shield.",
-        "agent_action": "Flagged for bounded compliance review; dispatched step-up Aadhaar/device-bound authentication challenge.",
+        "agent_action": "Flagged for bounded compliance review. Automated recovery halted to prevent fraud exposure; escalated for merchant manual review.",
     },
     "LATE_AUTHORIZATION": {
         "id": "LATE_AUTHORIZATION",
@@ -498,27 +498,44 @@ def get_failure_profile(failure_reason: str) -> Dict[str, Any]:
     return FAILURE_TAXONOMY.get(clean_key, FAILURE_TAXONOMY["UNKNOWN_FAILURE"])
 
 
-def generate_razorpay_error_payload(
+def generate_gateway_failure_payload(
     failure_reason: str,
     payment_id: str,
-    order_id: str = None
+    order_id: Optional[str] = None,
+    amount: Optional[float] = None,
+    method: Optional[str] = None,
+    **kwargs
 ) -> Dict[str, Any]:
     """
-    Generate realistic Razorpay production-grade error payload.
+    Generate realistic Razorpay production-grade error payload and telemetry.
     """
     profile = get_failure_profile(failure_reason)
-    return {
-        "error": {
-            "code": profile["code"],
-            "description": profile["description"],
-            "source": profile["source"],
-            "step": profile["step"],
-            "reason": profile["reason"],
-            "metadata": {
-                "payment_id": payment_id,
-                "order_id": order_id or f"order_{payment_id}",
-                "failure_cause": profile["name"],
-                "category": profile["category"],
-            }
+    error_dict = {
+        "code": profile.get("code", "GATEWAY_ERROR"),
+        "description": profile.get("description", "Payment authorization declined"),
+        "source": profile.get("source", "bank"),
+        "step": profile.get("step", "payment_authorization"),
+        "reason": profile.get("reason", "payment_failed"),
+        "metadata": {
+            "payment_id": payment_id,
+            "order_id": order_id or f"order_{payment_id}",
+            "failure_cause": profile.get("name", failure_reason),
+            "category": profile.get("category", "Gateway"),
+            "amount": amount,
+            "method": method,
         }
     }
+    return {
+        "error": error_dict,
+        "error_code": profile.get("code", "GATEWAY_ERROR"),
+        "error_description": profile.get("description", "Payment authorization declined"),
+        "error_source": profile.get("source", "bank"),
+        "error_step": profile.get("step", "payment_authorization"),
+        "bank_error_code": profile.get("reason", "91"),
+        "base_risk": profile.get("base_risk", 75),
+        "base_prob": profile.get("base_prob", 0.85),
+    }
+
+
+generate_razorpay_error_payload = generate_gateway_failure_payload
+

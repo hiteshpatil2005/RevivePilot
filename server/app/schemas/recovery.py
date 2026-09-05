@@ -19,6 +19,13 @@ class RecoveryTimelineEvent(BaseModel):
     actor: str = "SYSTEM"
     metadata: Dict[str, Any] = Field(default_factory=dict)
 
+    # UI fields for AIRecoveryTimeline
+    step: Optional[str] = None
+    label: Optional[str] = None
+    detail: Optional[str] = None
+    ts: Optional[str] = None
+    status: Optional[str] = "done"
+
     model_config = ConfigDict(populate_by_name=True)
 
 
@@ -49,6 +56,35 @@ class RecoveryCaseResponse(RecoveryCaseBase):
     transaction_id: uuid.UUID
     customer_id: uuid.UUID
 
+    # Customer & Payment Details
+    customer_name: Optional[str] = Field(None, alias="customerName")
+    customer_email: Optional[str] = Field(None, alias="customerEmail")
+    payment_method: Optional[str] = Field(None, alias="paymentMethod")
+    external_payment_id: Optional[str] = Field(None, alias="externalPaymentId")
+    external_order_id: Optional[str] = Field(None, alias="externalOrderId")
+
+    # Deep Recovery Intelligence Extensions
+    current_strategy: Optional[str] = Field(None, alias="currentStrategy")
+    strategy_version: int = Field(1, alias="strategyVersion")
+    strategy_reason: Optional[str] = Field(None, alias="strategyReason")
+    strategy_confidence: Optional[int] = Field(None, alias="strategyConfidence")
+    next_action: Optional[str] = Field(None, alias="nextAction")
+    next_evaluation_at: Optional[datetime] = Field(None, alias="nextEvaluationAt")
+    customer_context: Optional[Dict[str, Any]] = Field(default_factory=dict, alias="customerContext")
+    customer_expected_retry_at: Optional[datetime] = Field(None, alias="customerExpectedRetryAt")
+    merchant_approval_required: bool = Field(False, alias="merchantApprovalRequired")
+    merchant_approval_status: str = Field("NOT_REQUIRED", alias="merchantApprovalStatus")
+    smart_link_required: bool = Field(False, alias="smartLinkRequired")
+    smart_link_token: Optional[str] = Field(None, alias="smartLinkToken")
+    smart_link_expires_at: Optional[datetime] = Field(None, alias="smartLinkExpiresAt")
+    smart_link_status: str = Field("NONE", alias="smartLinkStatus")
+    stop_conditions: List[str] = Field(default_factory=list, alias="stopConditions")
+    escalation_conditions: List[str] = Field(default_factory=list, alias="escalationConditions")
+    replan_conditions: List[str] = Field(default_factory=list, alias="replanConditions")
+    future_plan: List[Dict[str, Any]] = Field(default_factory=list, alias="futurePlan")
+    replan_count: int = Field(0, alias="replanCount")
+    last_agent_decision: Optional[str] = Field(None, alias="lastAgentDecision")
+
     # Aliases / computed helpers for frontend compatibility
     amount: Optional[Decimal] = None
     priority: str = "medium"
@@ -67,7 +103,7 @@ class RecoveryCaseResponse(RecoveryCaseBase):
     updated_at: datetime
     resolved_at: Optional[datetime] = None
 
-    model_config = ConfigDict(from_attributes=True)
+    model_config = ConfigDict(from_attributes=True, populate_by_name=True)
 
 
 class RecoveryCaseListResponse(BaseModel):
@@ -75,3 +111,30 @@ class RecoveryCaseListResponse(BaseModel):
     total: int
     page: int = 1
     limit: int = 50
+
+
+class MerchantChatRequest(BaseModel):
+    message: str
+
+
+class MerchantChatResponse(BaseModel):
+    reply: str
+    confidence: int = 95
+    actionable_suggestion: Optional[str] = None
+
+
+class CustomerChatRequest(BaseModel):
+    message: Optional[str] = None
+    selected_option: Optional[str] = None
+
+
+class CustomerChatResponse(BaseModel):
+    reply: str
+    case_status: str
+    strategy: str
+    next_action: str
+
+
+class StrategyApprovalRequest(BaseModel):
+    action: str = "APPROVE"  # APPROVE, REJECT
+    notes: Optional[str] = None

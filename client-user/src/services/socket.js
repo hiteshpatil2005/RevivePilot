@@ -28,10 +28,11 @@ class CustomerSocketService {
     try {
       this.socket = io(SERVER_URL, {
         path: '/socket.io',
-        transports: ['websocket', 'polling'],
+        transports: ['polling', 'websocket'],
         auth: { token: authToken },
+        timeout: 20000,
         reconnection: true,
-        reconnectionAttempts: 10,
+        reconnectionAttempts: 20,
         reconnectionDelay: 1000,
       });
 

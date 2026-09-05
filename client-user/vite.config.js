@@ -6,7 +6,7 @@ import tailwindcss from '@tailwindcss/vite';
 export default defineConfig({
   plugins: [react(), tailwindcss()],
   server: {
-    port: 5174,
+    port: process.env.PORT ? parseInt(process.env.PORT) : 3001,
     host: true,
     watch: {
       usePolling: true,

@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 import {
   ScrollText, Download, Search, Filter, X, ExternalLink,
   CheckCircle2, XCircle, AlertTriangle, Info, Zap,
@@ -24,19 +25,18 @@ const EVENT_CONFIG = {
   ACTION_FAILED:          { icon: XCircle,       color: 'var(--color-danger)',  label: 'Action Failed' },
   PAYMENT_RECOVERED:      { icon: TrendingUp,    color: 'var(--color-success)', label: 'Payment Recovered' },
   CASE_ESCALATED:         { icon: AlertCircle,   color: 'var(--color-warning)', label: 'Case Escalated' },
-  CASE_STOPPED:           { icon: Square,        color: 'var(--color-danger)',  label: 'Case Stopped' },
+  CASE_STOPPED:           { icon: Square,        color: 'var(--color-text-muted)', label: 'Case Stopped' },
+  RETRY_TRIGGERED:        { icon: RefreshCcw,    color: 'var(--color-brand)',   label: 'Retry Triggered' },
 };
 
 const RESULT_STYLE = {
-  SUCCESS:   { color: 'var(--color-success)', bg: 'var(--color-success-bg)' },
-  APPROVED:  { color: 'var(--color-success)', bg: 'var(--color-success-bg)' },
-  FAILED:    { color: 'var(--color-danger)',  bg: 'var(--color-danger-bg)' },
-  BLOCKED:   { color: 'var(--color-danger)',  bg: 'var(--color-danger-bg)' },
-  ESCALATED: { color: 'var(--color-warning)', bg: 'var(--color-warning-bg)' },
-  PENDING:   { color: 'var(--color-info)',    bg: 'var(--color-info-bg)' },
+  SUCCESS: { label: 'SUCCESS', bg: 'var(--color-success-bg)', color: 'var(--color-success)', border: 'var(--color-success-border)' },
+  FAILURE: { label: 'FAILURE', bg: 'var(--color-danger-bg)',  color: 'var(--color-danger)',  border: 'var(--color-danger-border)' },
+  PENDING: { label: 'PENDING', bg: 'var(--color-warning-bg)', color: 'var(--color-warning)', border: 'var(--color-warning-border)' },
+  SKIPPED: { label: 'SKIPPED', bg: 'var(--color-bg-muted)',   color: 'var(--color-text-muted)', border: 'var(--color-border)' },
 };
 
-function relativeTs(iso) {
+function formatTimestamp(iso) {
   try {
     const d = new Date(iso);
     return d.toLocaleString('en-IN', {
@@ -70,7 +70,7 @@ function AuditDetailDrawer({ log, onClose }) {
     setTimeout(() => setCopied(false), 2000);
   };
 
-  return (
+  return createPortal(
     <>
       {/* Backdrop */}
       <div
@@ -232,7 +232,8 @@ function AuditDetailDrawer({ log, onClose }) {
           )}
         </div>
       </div>
-    </>
+    </>,
+    document.body
   );
 }
 
